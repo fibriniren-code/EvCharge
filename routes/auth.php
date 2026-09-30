@@ -10,6 +10,19 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\SPKLUController;
+use App\Http\Controllers\ReservationController;
+
+Route::middleware('auth')->group(function () {
+
+    // ...
+
+    Route::get('/spklu', [SPKLUController::class, 'index'])
+        ->name('spklu.index');
+
+    Route::get('/spklu/map', [SPKLUController::class, 'map'])
+        ->name('spklu.map');
+}); 
 
 Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
@@ -56,4 +69,11 @@ Route::middleware('auth')->group(function () {
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
+        Route::middleware(['auth'])->group(function () {
+    // Route Reservasi Slot Charger
+    Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
+    Route::get('/reservations/create', [ReservationController::class, 'create'])->name('reservations.create');
+    Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
+    Route::patch('/reservations/{id}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
+});
 });

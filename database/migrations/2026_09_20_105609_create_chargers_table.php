@@ -12,11 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('chargers', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('location_id')->constrained()->onDelete('cascade');
-            $table->string('charger_code')->unique();
-            $table->string('type'); // misal: AC / DC Fast Charging
-            $table->string('status')->default('available'); // available, busy, maintenance
+            // 1. Mengacu ke id_location milik tabel locations
+            $table->foreignId('location_id')->constrained('locations', 'id_location')->onDelete('cascade');
+            
+            // 2. Primary key charger
+            $table->id('id_charger'); // Atau $table->id(); jika menggunakan 'id'
+            
+            $table->string('type');
+            $table->integer('power_kw');
+            $table->enum('status', ['available', 'occupied', 'maintenance'])->default('available');
             $table->timestamps();
         });
     }

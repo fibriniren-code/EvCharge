@@ -2,17 +2,23 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Vehicle extends Model
 {
+    use HasFactory;
+
+    // Custom primary key sesuai database
+    protected $primaryKey = 'id_vehicle';
+
     protected $fillable = [
         'user_id',
-        'make',
+        'merek',
         'model',
-        'year',
-        'battery_capacity',
-        'license_plate',
+        'nomor_polisi',
+        'tipe_konektor',
+        'kapasitas_baterai_kwh',
     ];
 
     public function user()

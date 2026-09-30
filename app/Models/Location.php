@@ -9,15 +9,25 @@ class Location extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'address', 'latitude', 'longitude'];
+    protected $table = 'locations';
+    protected $primaryKey = 'id_location';
+
+    protected $fillable = [
+        'nama_lokasi',
+        'alamat',
+        'latitude',
+        'longitude',
+        'jam_operasional',
+        'fasilitas',
+        'status'
+    ];
+
+    protected $casts = [
+        'fasilitas' => 'array',
+    ];
 
     public function chargers()
     {
-        return $this->hasMany(Charger::class);
-    }
-
-    public function reviews()
-    {
-        return $this->hasMany(Review::class);
+        return $this->hasMany(Charger::class, 'location_id', 'id_location');
     }
 }

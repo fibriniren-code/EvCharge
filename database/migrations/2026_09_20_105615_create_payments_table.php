@@ -12,12 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('payments', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('charging_session_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->decimal('amount', 10, 2);
-            $table->string('payment_method'); // e.g., e-wallet, credit_card, bank_transfer
-            $table->string('status')->default('pending'); // pending, success, failed
+            $table->id('id_payment');
+            $table->foreignId('id_session')->constrained('charging_sessions', 'id_session')->onDelete('cascade');
+            $table->string('metode'); // E-Wallet, VA, Kartu Kredit, QRIS
+            $table->decimal('jumlah', 12, 2);
+            $table->enum('status', ['pending', 'success', 'failed', 'refunded'])->default('pending');
+            $table->dateTime('waktu_pembayaran')->nullable();
+            $table->string('referensi_gateway')->nullable();
             $table->timestamps();
         });
     }

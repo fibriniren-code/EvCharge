@@ -12,13 +12,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('reservations', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('charger_id')->constrained()->onDelete('cascade');
-            $table->dateTime('reservation_time');
-            $table->string('status')->default('pending'); // pending, confirmed, cancelled, completed
+            $table->id('id_reservation');
+            
+            // Relasi Foreign Key
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('location_id')->constrained('locations', 'id_location')->onDelete('cascade');
+            $table->foreignId('charger_id')->constrained('chargers', 'id_charger')->onDelete('cascade');
+            
+            $table->dateTime('start_time');
+            $table->dateTime('end_time');
+            $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled'])->default('pending');
             $table->timestamps();
-        });
+        }); // <- Pastikan penutup Schema::create ini menggunakan });
     }
 
     /**

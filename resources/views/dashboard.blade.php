@@ -17,13 +17,13 @@
 
                 <!-- Menu Navigasi Utama -->
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <a href="#" style="padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none;">Cari SPKLU</a>
-                    <a href="#" style="padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none;">Mobil Saya</a>
-                    <a href="#" style="padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none;">Riwayat Pengisian</a>
+                    <a href="{{ route('spklu.index') }}" style="padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none;">Cari SPKLU</a>
+                    <a href="{{ route('cars.index') }}" style="padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none;">Mobil Saya</a>
+                    <a href="{{ route('transactions.index') }}" style="padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none;">Riwayat Pengisian</a>
                     
                     {{-- Hanya tampil jika role user adalah operator atau admin --}}
                     @if (in_array(Auth::user()->role, ['operator', 'admin']))
-                        <a href="#" style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; background-color: #1D4ED8; color: #FFFFFF; text-decoration: none;">
+                        <a href="{{ route('operator.dashboard') }}" style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; background-color: #1D4ED8; color: #FFFFFF; text-decoration: none;">
                             Dashboard Operator
                         </a>
                     @endif
@@ -40,7 +40,7 @@
                                 Rp {{ number_format(Auth::user()->balance ?? 0, 0, ',', '.') }}
                             </span>
                         </div>
-                        <a href="#" title="Top Up Saldo" style="background-color: #2563EB; color: #FFFFFF; text-decoration: none; padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: bold;">
+                        <a href="{{ route('topup.index') }}" title="Top Up Saldo" style="background-color: #2563EB; color: #FFFFFF; text-decoration: none; padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: bold;">
                             + Isi
                         </a>
                     </div>
@@ -60,7 +60,7 @@
                         <!-- Menu Pop-up Dropdown -->
                         <div x-show="open" @click.away="open = false" style="position: absolute; right: 0; margin-top: 0.5rem; width: 12rem; background-color: #1C2541; border: 1px solid #2A3859; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); z-index: 50; display: none;" x-bind:style="{ display: open ? 'block' : 'none' }">
                             <a href="{{ route('profile.edit') }}" style="display: block; padding: 0.5rem 1rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none; border-bottom: 1px solid #2A3859;">Pengaturan Profil</a>
-                            <a href="#" style="display: block; padding: 0.5rem 1rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none; border-bottom: 1px solid #2A3859;">Bantuan / Support</a>
+                            <a href="{{ route('support.index') }}" style="display: block; padding: 0.5rem 1rem; font-size: 0.875rem; color: #CBD5E1; text-decoration: none; border-bottom: 1px solid #2A3859;">Bantuan / Support</a>
                             
                             <!-- Form Logout Laravel (Bawaan Breeze/Jetstream) -->
                             <form method="POST" action="{{ route('logout') }}">
@@ -97,7 +97,7 @@
                         <p style="font-size: 0.875rem; color: #CBD5E1; margin-top: 0.25rem;">Pantau utilisasi perangkat charger, sesuaikan tarif per kWh, dan tangani gangguan perangkat secara real-time.</p>
                     </div>
                     <div>
-                        <a href="#" style="display: inline-flex; align-items: center; background-color: #2563EB; color: #FFFFFF; font-weight: bold; padding: 0.65rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; text-decoration: none;">
+                        <a href="{{ route('spklu.create') }}" style="display: inline-flex; align-items: center; background-color: #2563EB; color: #FFFFFF; font-weight: bold; padding: 0.65rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; text-decoration: none;">
                             + Tambah Stasiun SPKLU Baru
                         </a>
                     </div>
@@ -202,14 +202,14 @@
                     <div style="background-color: #1C2541; border: 1px solid #2A3859; border-radius: 1rem; padding: 1.5rem;">
                         <h3 style="font-size: 1.125rem; font-weight: bold; color: #FFFFFF; margin-bottom: 0.5rem;">Mobil Saya</h3>
                         <p style="font-size: 0.875rem; color: #94A3B8; margin-bottom: 1.25rem;">Kelola daftar dan spesifikasi kendaraan listrik milikmu.</p>
-                        <a href="#" style="display: inline-block; background-color: #2563EB; color: #FFFFFF; font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.875rem;">Lihat Kendaraan</a>
+                        <a href="{{ route('cars.index') }}" style="display: inline-block; background-color: #2563EB; color: #FFFFFF; font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.875rem;">Lihat Kendaraan</a>
                     </div>
 
                     <!-- Kartu Riwayat Pengisian -->
                     <div style="background-color: #1C2541; border: 1px solid #2A3859; border-radius: 1rem; padding: 1.5rem;">
                         <h3 style="font-size: 1.125rem; font-weight: bold; color: #FFFFFF; margin-bottom: 0.5rem;">Riwayat Pengisian</h3>
                         <p style="font-size: 0.875rem; color: #94A3B8; margin-bottom: 1.25rem;">Cek catatan transaksi dan total kWh pengisian sebelumnya.</p>
-                        <a href="#" style="display: inline-block; background-color: #2A3859; color: #FFFFFF; font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.875rem;">Lihat Riwayat</a>
+                        <a href="{{ route('transactions.index') }}" style="display: inline-block; background-color: #2A3859; color: #FFFFFF; font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-size: 0.875rem;">Lihat Riwayat</a>
                     </div>
                 </div>
 

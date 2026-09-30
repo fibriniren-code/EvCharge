@@ -11,12 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::create('locations', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->text('address');
-            $table->decimal('latitude', 10, 8)->nullable();
-            $table->decimal('longitude', 11, 8)->nullable();
+        Schema::create('locations', function (Blueprint $table) {
+            $table->id('id_location');
+            $table->string('nama_lokasi');
+            $table->text('alamat');
+            $table->decimal('latitude', 10, 8);
+            $table->decimal('longitude', 11, 8);
+            $table->string('jam_operasional');
+            $table->json('fasilitas')->nullable();
+            $table->enum('status', ['aktif', 'tutup_sementara', 'penuh', 'perawatan'])->default('aktif');
             $table->timestamps();
         });
     }

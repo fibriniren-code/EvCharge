@@ -11,15 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('charging_sessions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('charger_id')->constrained()->onDelete('cascade');
-            $table->dateTime('start_time');
-            $table->dateTime('end_time')->nullable();
-            $table->decimal('total_kwh', 8, 2)->default(0);
-            $table->decimal('total_cost', 10, 2)->default(0);
-            $table->string('status')->default('ongoing'); // ongoing, completed, stopped
+       Schema::create('charging_sessions', function (Blueprint $table) {
+            $table->id('id_session');
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('id_charger')->constrained('chargers', 'id_charger')->onDelete('cascade');
+            $table->foreignId('id_reservation')->nullable()->constrained('reservations', 'id_reservation');
+            $table->dateTime('waktu_mulai');
+            $table->dateTime('waktu_selesai')->nullable();
+            $table->decimal('energi_kwh', 8, 2)->default(0);
+            $table->decimal('estimasi_biaya', 12, 2)->default(0);
+            $table->enum('status', ['running', 'completed', 'interrupted', 'cancelled'])->default('running');
             $table->timestamps();
         });
     }
