@@ -1,135 +1,162 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Daftar SPKLU & Stasiun Pengisian') }}
-        </h2>
-    </x-slot>
+    <div style="max-width: 80rem; margin: 0 auto; padding: 1.5rem 1.5rem 3rem 1.5rem;">
+        
+        <!-- Header Halaman -->
+        <div style="margin-bottom: 1.5rem;">
+            <h1 style="font-size: 1.75rem; font-weight: 800; color: #FFFFFF; margin: 0; tracking-tight: -0.025em;">
+                Daftar SPKLU & Stasiun Pengisian
+            </h1>
+            <p style="font-size: 0.875rem; color: #94A3B8; margin-top: 0.25rem; margin-bottom: 0;">
+                Cari stasiun pengisian kendaraan listrik terdekat, cek ketersediaan slot charger real-time, dan lakukan reservasi.
+            </p>
+        </div>
 
-    <div class="py-6 max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-
-        <!-- Form Filter & Pencarian -->
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <form method="GET" action="{{ route('spklu.index') }}" class="space-y-4">
+        <!-- Filter / Form Pencarian Kota -->
+        <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 1.25rem; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);">
+            <form action="{{ route('spklu.index') }}" method="GET">
+                <label style="display: block; font-size: 0.7rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+                    CARI SPKLU / KOTA
+                </label>
                 
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">CARI SPKLU / KOTA</label>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                     <input type="text" 
                            name="search" 
                            value="{{ request('search') }}" 
-                           placeholder="Ketik nama kota (misal: Jakarta, Bandung, Surabaya...)" 
-                           class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-slate-800 focus:ring-slate-800 py-2.5 px-3"
+                           placeholder="Ketik nama kota (misal: Yogyakarta, Jakarta, Bandung...)" 
+                           style="flex: 1; min-width: 250px; background-color: #0F172A; border: 1px solid #334155; color: #FFFFFF; padding: 0.65rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; outline: none;"
                            required>
-                </div>
-
-                <!-- Tombol Aksi -->
-                <div class="flex items-center gap-4 pt-1">
-                    <button type="submit" class="w-1/2 bg-slate-900 hover:bg-slate-800 text-white py-2.5 px-4 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        Cari di Peta
+                    
+                    <button type="submit" style="background-color: #2563EB; color: #FFFFFF; font-weight: 700; border: none; padding: 0.65rem 1.25rem; border-radius: 0.75rem; font-size: 0.875rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
+                        🔍 Cari di Peta
                     </button>
-                    <a href="{{ route('spklu.index') }}" class="w-1/2 text-center bg-gray-50 hover:bg-gray-100 text-gray-700 py-2.5 px-4 rounded-lg text-sm font-semibold transition border border-gray-200">
+                    
+                    <a href="{{ route('spklu.index') }}" style="background-color: #334155; color: #CBD5E1; font-weight: 600; text-decoration: none; padding: 0.65rem 1.25rem; border-radius: 0.75rem; font-size: 0.875rem; display: flex; align-items: center;">
                         Reset
                     </a>
                 </div>
-
             </form>
         </div>
 
-        @if(request()->filled('search'))
-            <!-- Section Google Maps Embed (Hanya muncul jika sudah mencari) -->
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <div class="flex justify-between items-center mb-3 px-1">
-                    <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2">
-                        <svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                        Peta SPKLU Terdekat: {{ request('search') }}
-                    </h3>
-                    
-                    @php
-                        $searchQuery = "SPKLU " . request('search');
-                        $googleMapsUrl = "https://www.google.com/maps/search/" . urlencode($searchQuery);
-                    @endphp
-                    
-                    <a href="{{ $googleMapsUrl }}" target="_blank" class="text-xs text-slate-700 font-semibold hover:underline flex items-center gap-1">
-                        Buka Aplikasi Google Maps 
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+        @if(!request('search'))
+            <!-- Tampilan Awal / Empty State Sebelum Pencarian -->
+            <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 1.25rem; padding: 4rem 2rem; text-align: center; color: #94A3B8;">
+                <div style="font-size: 4rem; line-height: 1; margin-bottom: 1rem; opacity: 0.5;">🔍</div>
+                <h3 style="font-size: 1.125rem; font-weight: 700; color: #FFFFFF; margin-bottom: 0.5rem;">Silakan Masukkan Nama Kota</h3>
+                <p style="font-size: 0.85rem; color: #94A3B8; max-width: 28rem; margin: 0 auto;">
+                    Ketik kota tujuan Anda pada kolom di atas lalu klik "Cari di Peta" untuk menampilkan lokasi SPKLU terdekat.
+                </p>
+            </div>
+        @else
+            <!-- Container Peta Google Maps / Peta SPKLU -->
+            <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 1.25rem; padding: 1.25rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: #60A5FA; display: flex; align-items: center; gap: 0.35rem;">
+                        📍 Peta SPKLU Terdekat: <span style="color: #FFFFFF;">{{ request('search') }}</span>
+                    </span>
+                    <a href="https://www.google.com/maps/search/SPKLU+{{ urlencode(request('search')) }}" target="_blank" style="font-size: 0.75rem; color: #94A3B8; text-decoration: none;">
+                        Buka Aplikasi Google Maps ↗
                     </a>
                 </div>
 
-                <div class="w-full h-80 rounded-lg overflow-hidden border border-gray-200">
+                <!-- Iframe Peta / Container Peta -->
+                <div style="border-radius: 0.75rem; overflow: hidden; border: 1px solid #334155; height: 320px; background-color: #0F172A;">
                     <iframe 
                         width="100%" 
                         height="100%" 
                         style="border:0;" 
                         loading="lazy" 
-                        allowfullscreen
-                        src="https://maps.google.com/maps?q={{ urlencode($searchQuery) }}&t=&z=12&ie=UTF8&iwloc=&output=embed">
+                        allowfullscreen 
+                        src="https://maps.google.com/maps?q=SPKLU%20{{ urlencode(request('search')) }}&t=&z=13&ie=UTF8&iwloc=&output=embed">
                     </iframe>
                 </div>
             </div>
 
-            <!-- Daftar Stasiun SPKLU (Grid) -->
-            <div class="space-y-4">
-                @forelse ($locations as $location)
-                    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-3">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h3 class="font-bold text-gray-900 text-base">
-                                    {{ $location->nama_lokasi }}
-                                </h3>
-                                <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
-                                    {{ $location->alamat }}
+            <!-- Banner Quick Action Scan QR Tepat Setelah Peta -->
+            <div style="background-color: #1E293B; border: 1px solid #10B981; border-radius: 1.25rem; padding: 1.25rem 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; box-shadow: 0 4px 12px rgba(16,185,129,0.15);">
+                <div>
+                    <h4 style="font-size: 1rem; font-weight: 800; color: #FFFFFF; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>⚡</span> Sudah Sampai di Lokasi Mesin Charger?
+                    </h4>
+                    <p style="font-size: 0.8rem; color: #94A3B8; margin: 0.25rem 0 0 0;">
+                        Pindai kode QR pada fisik mesin SPKLU untuk langsung mengaktifkan sesi pengisian daya.
+                    </p>
+                </div>
+                <a href="{{ route('driver.scan') }}" style="background-color: #10B981; color: #FFFFFF; font-weight: 700; padding: 0.65rem 1.25rem; border-radius: 0.75rem; text-decoration: none; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+                    📷 Scan QR Mesin Charger
+                </a>
+            </div>
+
+            <!-- List Detail Hasil SPKLU -->
+            <div style="margin-bottom: 1rem;">
+                <h3 style="font-size: 0.875rem; font-weight: 800; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">
+                    DETAIL SPKLU DIKEMBANGKAN
+                </h3>
+
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    @forelse($locations as $location)
+                        <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 1.25rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);">
+                            <div style="margin-bottom: 1rem; border-bottom: 1px solid #334155; padding-bottom: 0.75rem;">
+                                <h4 style="font-size: 1.125rem; font-weight: 800; color: #FFFFFF; margin: 0 0 0.25rem 0;">
+                                    {{ $location->name ?? $location->nama_lokasi }}
+                                </h4>
+                                <p style="font-size: 0.8rem; color: #94A3B8; margin: 0;">
+                                    📍 {{ $location->address ?? $location->alamat }}
                                 </p>
                             </div>
-                        </div>
 
-                        <hr class="border-gray-100">
+                            <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #60A5FA; text-transform: uppercase; tracking-wider: 0.05em; margin-bottom: 0.75rem;">
+                                SLOT CHARGER TERSEDIA:
+                            </span>
 
-                        <!-- Slot Charger -->
-                        <div>
-                            <h4 class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Slot Charger Tersedia:</h4>
-                            <div class="space-y-2">
-                                @forelse ($location->chargers as $charger)
-                                    <div class="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg text-xs">
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                @forelse($location->chargers as $charger)
+                                    <div style="background-color: #0F172A; border: 1px solid #2A3859; border-radius: 0.75rem; padding: 0.85rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
                                         <div>
-                                            <p class="font-bold text-gray-800">{{ $charger->type }}</p>
-                                            <p class="text-gray-500 text-[11px]">{{ $charger->power_kw }} kW</p>
+                                            <span style="display: block; font-size: 0.875rem; font-weight: 700; color: #FFFFFF;">
+                                                {{ $charger->name ?? 'Charger #'.$charger->id_charger }} ({{ $charger->connector_type ?? $charger->tipe_konektor }})
+                                            </span>
+                                            <span style="font-size: 0.75rem; color: #94A3B8;">
+                                                Daya: {{ $charger->power_kw ?? $charger->daya_kw }} kW
+                                            </span>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            @if ($charger->status === 'available')
-                                                <span class="font-semibold text-green-600 text-xs mr-1">Tersedia</span>
-                                                <a href="{{ url('/location/' . $location->id_location . '/charger/' . ($charger->id_charger ?? $charger->id) . '/reserve') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold transition">
+
+                                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                            @if(($charger->status ?? 'available') === 'available')
+                                                <span style="color: #34D399; font-size: 0.75rem; font-weight: 700; background-color: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); padding: 0.25rem 0.65rem; border-radius: 9999px;">
+                                                    ● Tersedia
+                                                </span>
+                                                
+                                                <!-- Tombol Scan QR Langsung pada Slot Charger -->
+                                                <a href="{{ route('driver.scan') }}" 
+                                                   style="background-color: #10B981; color: #FFFFFF; font-size: 0.75rem; font-weight: 700; padding: 0.4rem 0.8rem; border-radius: 0.5rem; text-decoration: none;">
+                                                    📷 Scan QR
+                                                </a>
+
+                                                <a href="{{ route('reservations.create', ['location' => $location->id_location ?? $location->id, 'charger' => $charger->id_charger ?? $charger->id]) }}" 
+                                                   style="background-color: #2563EB; color: #FFFFFF; font-size: 0.75rem; font-weight: 700; padding: 0.4rem 1rem; border-radius: 0.5rem; text-decoration: none; box-shadow: 0 2px 8px rgba(37,99,235,0.3);">
                                                     Pesan
                                                 </a>
                                             @else
-                                                <span class="font-semibold text-gray-500 text-xs">{{ ucfirst($charger->status) }}</span>
+                                                <span style="color: #F87171; font-size: 0.75rem; font-weight: 700; background-color: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); padding: 0.25rem 0.65rem; border-radius: 9999px;">
+                                                    ● Terpakai / Disewa
+                                                </span>
+                                                <button disabled style="background-color: #334155; color: #64748B; font-size: 0.75rem; font-weight: 700; padding: 0.4rem 1rem; border-radius: 0.5rem; border: none; cursor: not-allowed;">
+                                                    Tidak Tersedia
+                                                </button>
                                             @endif
                                         </div>
                                     </div>
                                 @empty
-                                    <p class="text-xs text-gray-400 italic">Belum ada unit charger terpasang.</p>
+                                    <p style="font-size: 0.8rem; color: #64748B; margin: 0;">Tidak ada slot charger terdaftar di stasiun ini.</p>
                                 @endforelse
                             </div>
                         </div>
-                    </div>
-                @empty
-                    <div class="bg-white p-8 text-center rounded-xl border border-gray-100 text-gray-500">
-                        <p class="text-sm font-semibold">Tidak ditemukan stasiun SPKLU untuk kata kunci "{{ request('search') }}"</p>
-                    </div>
-                @endforelse
-            </div>
-
-            @if(method_exists($locations, 'links'))
-                <div class="mt-4">
-                    {{ $locations->links() }}
+                    @empty
+                        <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 1.25rem; padding: 2rem; text-align: center; color: #94A3B8;">
+                            Tidak ditemukan lokasi SPKLU untuk kata kunci <strong>"{{ request('search') }}"</strong>.
+                        </div>
+                    @endforelse
                 </div>
-            @endif
-        @else
-            <!-- Tampilan awal sebelum pengguna mengetik pencarian -->
-            <div class="bg-white p-12 text-center rounded-xl border border-gray-100 text-gray-500">
-                <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <p class="text-base font-semibold text-gray-700">Silakan Masukkan Nama Kota</p>
-                <p class="text-xs text-gray-400 mt-1">Ketik kota tujuan Anda pada kolom di atas lalu klik "Cari di Peta" untuk menampilkan lokasi SPKLU.</p>
             </div>
         @endif
 

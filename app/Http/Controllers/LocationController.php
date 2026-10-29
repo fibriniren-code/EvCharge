@@ -7,32 +7,25 @@ use Illuminate\Http\Request;
 
 class LocationController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Location::with('chargers'); // Wajib sertakan relasi chargers
+        $locations = Location::all();
+        return view('locations.index', compact('locations'));
+    }
 
-        // Pencarian berdasarkan kata kunci
-        if ($request->has('search') && $request->search != '') {
-            $query->where('name', 'like', '%' . $request->search . '%')
-                  ->orWhere('address', 'like', '%' . $request->search . '%');
-        }
-
-        // Perhitungan Jarak Haversine (Jika ada koordinat latitude & longitude)
-        if ($request->has('latitude') && $request->has('longitude')) {
-            $lat = $request->latitude;
-            $lng = $request->longitude;
-
-            $query->selectRaw("*, ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(?) ) + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS distance", [$lat, $lng, $lat]);
-            
-            // Urutkan dari yang terdekat
-            $query->orderBy('distance', 'asc');
-        }
-
-        $locations = $query->get();
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $locations
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'required|string',
+            'area_detail' => 'required|string|max:255',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
         ]);
+
+        Location::create($validated);
+
+        return redirect()->back()->with('success', 'Lokasi SPKLU berhasil ditambahkan!');
     }
 }
+    

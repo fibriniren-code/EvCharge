@@ -6,29 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('reservations', function (Blueprint $table) {
-            $table->id('id_reservation');
-            
-            // Relasi Foreign Key
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('location_id')->constrained('locations', 'id_location')->onDelete('cascade');
-            $table->foreignId('charger_id')->constrained('chargers', 'id_charger')->onDelete('cascade');
-            
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('charger_id')->constrained()->onDelete('cascade');
+            $table->foreignId('vehicle_id')->nullable()->constrained()->onDelete('set null');
             $table->dateTime('start_time');
             $table->dateTime('end_time');
-            $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled'])->default('pending');
+            $table->dateTime('expires_at')->nullable();
+            $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled', 'expired'])->default('pending');
             $table->timestamps();
-        }); // <- Pastikan penutup Schema::create ini menggunakan });
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('reservations');

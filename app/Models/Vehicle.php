@@ -9,7 +9,6 @@ class Vehicle extends Model
 {
     use HasFactory;
 
-    // Custom primary key sesuai database
     protected $primaryKey = 'id_vehicle';
 
     protected $fillable = [

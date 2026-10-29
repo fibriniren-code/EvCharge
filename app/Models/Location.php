@@ -15,15 +15,12 @@ class Location extends Model
     protected $fillable = [
         'nama_lokasi',
         'alamat',
+        'detail_area',
         'latitude',
         'longitude',
         'jam_operasional',
         'fasilitas',
-        'status'
-    ];
-
-    protected $casts = [
-        'fasilitas' => 'array',
+        'status',
     ];
 
     public function chargers()
