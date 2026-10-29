@@ -1,100 +1,62 @@
-<nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
-    <!-- Primary Navigation Menu -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-            <div class="flex">
-                <!-- Logo -->
-                <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}">
-                        <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
-                    </a>
-                </div>
+<nav style="background-color: #0F172A; border-bottom: 1px solid #1E293B; color: #FFFFFF; position: sticky; top: 0; z-index: 50;">
+    <div style="max-width: 80rem; margin: 0 auto; padding: 0 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; height: 4rem;">
+            
+            <!-- Logo & Navigation -->
+            <div style="display: flex; align-items: center; gap: 2rem;">
+                <a href="{{ route('dashboard') }}" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
+                    <div style="background-color: #2563EB; color: #FFFFFF; padding: 0.5rem; border-radius: 0.75rem; font-weight: bold; width: 2.25rem; height: 2.25rem; display: flex; align-items: center; justify-content: center; font-size: 1rem;">⚡</div>
+                    <div>
+                        <span style="font-size: 1.125rem; font-weight: 800; color: #FFFFFF; letter-spacing: 0.025em;">EVCharge<span style="color: #60A5FA;">Hub</span></span>
+                        <span style="display: block; font-size: 0.6rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-top: -2px;">SPKLU PLATFORM</span>
+                    </div>
+                </a>
 
-                <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                        {{ __('Dashboard') }}
-                    </x-nav-link>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <a href="{{ route('spklu.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('spklu.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('spklu.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Cari SPKLU</a>
+                    <a href="{{ route('cars.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('cars.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('cars.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Mobil Saya</a>
+                    <a href="{{ route('reservations.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('reservations.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('reservations.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Reservasi Saya</a>
+                    
+                    <!-- DITAMBAHKAN: Menu Scan QR -->
+                    <a href="{{ route('driver.scan') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('driver.scan') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('driver.scan') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">📷 Scan QR</a>
                 </div>
             </div>
 
-            <!-- Settings Dropdown -->
-            <div class="hidden sm:flex sm:items-center sm:ms-6">
+            <!-- Right Area: Saldo & Profile -->
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <!-- Widget Saldo Pas & Rapi -->
+                <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.35rem 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="text-align: right; line-height: 1.1;">
+                        <span style="display: block; font-size: 0.6rem; color: #94A3B8; font-weight: 600; text-transform: uppercase;">Saldo</span>
+                        <span style="font-size: 0.85rem; font-weight: 800; color: #34D399;">Rp {{ number_format(Auth::user()->balance ?? 0, 0, ',', '.') }}</span>
+                    </div>
+                    <a href="{{ route('topup.index') }}" style="background-color: #2563EB; color: #FFFFFF; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 0.5rem; text-decoration: none;">+ Isi</a>
+                </div>
+
+                <!-- Profile Dropdown -->
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
-                            <div>{{ Auth::user()->name }}</div>
-
-                            <div class="ms-1">
-                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                </svg>
+                        <button style="display: flex; align-items: center; gap: 0.6rem; background-color: #1E293B; border: 1px solid #334155; padding: 0.35rem 0.75rem; border-radius: 0.75rem; cursor: pointer; color: inherit; text-align: left;">
+                            <div style="width: 1.75rem; height: 1.75rem; border-radius: 0.5rem; background-color: #2563EB; color: #FFFFFF; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center; justify-content: center;">
+                                {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                            </div>
+                            <div style="line-height: 1.1;">
+                                <span style="display: block; font-size: 0.8rem; font-weight: 700; color: #FFFFFF;">{{ Auth::user()->name }}</span>
+                                <span style="display: block; font-size: 0.6rem; color: #60A5FA; font-weight: 700; text-transform: uppercase;">DRIVER</span>
                             </div>
                         </button>
                     </x-slot>
 
                     <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
-                        </x-dropdown-link>
-
-                        <!-- Authentication -->
+                        <x-dropdown-link :href="route('profile.edit')">Profil Saya</x-dropdown-link>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault();
-                                                this.closest('form').submit();">
-                                {{ __('Log Out') }}
-                            </x-dropdown-link>
+                            <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">Keluar (Logout)</x-dropdown-link>
                         </form>
                     </x-slot>
                 </x-dropdown>
             </div>
 
-            <!-- Hamburger -->
-            <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
-                    <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                        <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                        <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
-        <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                {{ __('Dashboard') }}
-            </x-responsive-nav-link>
-        </div>
-
-        <!-- Responsive Settings Options -->
-        <div class="pt-4 pb-1 border-t border-gray-200">
-            <div class="px-4">
-                <div class="font-medium text-base text-gray-800">{{ Auth::user()->name }}</div>
-                <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>
-            </div>
-
-            <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Profile') }}
-                </x-responsive-nav-link>
-
-                <!-- Authentication -->
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-
-                    <x-responsive-nav-link :href="route('logout')"
-                            onclick="event.preventDefault();
-                                        this.closest('form').submit();">
-                        {{ __('Log Out') }}
-                    </x-responsive-nav-link>
-                </form>
-            </div>
         </div>
     </div>
 </nav>
