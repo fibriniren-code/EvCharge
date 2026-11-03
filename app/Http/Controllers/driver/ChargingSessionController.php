@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Charger;
 use App\Models\ChargingSession;
 use App\Models\Reservation;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 class ChargingSessionController extends Controller
 {
     /**
-     * Langkah 1: Memproses Scan QR Code & Validasi Status Charger (FR-04, FR-08)[cite: 5, 6]
+     * Langkah 1: Memproses Scan QR Code & Validasi Status Charger (FR-04, FR-08)
      */
     public function processScan(Request $request)
     {
@@ -21,7 +22,6 @@ class ChargingSessionController extends Controller
             'qr_code' => 'required|string',
         ]);
 
-        // Cari data charger berdasarkan QR Code
         $charger = Charger::where('qr_code', $request->qr_code)->first();
 
         if (!$charger) {
@@ -31,7 +31,6 @@ class ChargingSessionController extends Controller
             ], 404);
         }
 
-        // Pengecekan Status Operasional Charger (FR-08)[cite: 6]
         if (in_array(strtolower($charger->status), ['faulted', 'error'])) {
             return response()->json([
                 'success' => false,
@@ -53,7 +52,6 @@ class ChargingSessionController extends Controller
             ], 422);
         }
 
-        // Cek validasi reservasi aktif untuk pengemudi (FR-03)[cite: 5]
         $userId = auth()->id();
         $reservation = Reservation::where('user_id', $userId)
             ->where('charger_id', $charger->id_charger)
@@ -68,7 +66,6 @@ class ChargingSessionController extends Controller
             ], 400);
         }
 
-        // Kembalikan data ID agar Alpine.js di scan.blade.php dapat langsung menampilkan Form Langkah 2 (NFR-05)
         return response()->json([
             'success'        => true,
             'charger_id'     => $charger->id_charger,
@@ -77,7 +74,7 @@ class ChargingSessionController extends Controller
     }
 
     /**
-     * Langkah 2 & 3: Inisiasi & Mulai Pengisian Daya (NFR-05 & FR-04)[cite: 5]
+     * Langkah 2 & 3: Inisiasi & Mulai Pengisian Daya (NFR-05 & FR-04)
      */
     public function startSession(Request $request)
     {
@@ -93,11 +90,9 @@ class ChargingSessionController extends Controller
         return DB::transaction(function () use ($reservation, $request) {
             $charger = Charger::findOrFail($reservation->charger_id);
 
-            // Ubah Status Charger & Reservasi (FR-08)[cite: 6]
             $charger->update(['status' => 'occupied']);
             $reservation->update(['status' => 'active']);
 
-            // Buat record ChargingSession baru
             $session = ChargingSession::create([
                 'reservation_id' => $reservation->id_reservation,
                 'user_id'        => $reservation->user_id,
@@ -130,7 +125,7 @@ class ChargingSessionController extends Controller
     }
 
     /**
-     * Telemetry Simulasi kWh Mengalir Real-time (FR-05)[cite: 5]
+     * Telemetry Simulasi kWh Mengalir Real-time (FR-05)
      */
     public function getTelemetry($id)
     {
@@ -147,7 +142,6 @@ class ChargingSessionController extends Controller
             ]);
         }
 
-        // Perhitungan durasi pengisian
         $startTime = Carbon::parse($session->start_time);
         $secondsElapsed = max(1, $startTime->diffInSeconds(now()));
         
@@ -157,7 +151,6 @@ class ChargingSessionController extends Controller
         $tarifPerKwh = 2466;
         $totalCost = round($kwhDelivered * $tarifPerKwh);
 
-        // Perbarui data akumulasi
         $session->update([
             'energy_kwh' => $kwhDelivered,
             'total_cost' => $totalCost,
@@ -173,7 +166,7 @@ class ChargingSessionController extends Controller
     }
 
     /**
-     * Menghentikan Pengisian Daya (FR-04)[cite: 5]
+     * Menghentikan Pengisian Daya & Auto-Debit Pemotongan Saldo (FR-04 & FR-06)
      */
     public function stopSession($id)
     {
@@ -181,9 +174,21 @@ class ChargingSessionController extends Controller
             ->where('id_session', $id)
             ->firstOrFail();
 
-        DB::transaction(function () use ($session) {
+        $userId = auth()->id();
+
+        DB::transaction(function () use ($session, $userId) {
             $endTime = now();
             $durationMinutes = Carbon::parse($session->start_time)->diffInMinutes($endTime);
+
+            if ($session->total_cost <= 0) {
+                $powerKw = $session->charger->power_kw ?? 22;
+                $kwhDelivered = round(($powerKw / 60) * max(1, $durationMinutes), 2);
+                $session->total_cost = round($kwhDelivered * 2466);
+                $session->energy_kwh = $kwhDelivered;
+            }
+
+            // Potong Saldo Langsung di Database
+            DB::table('users')->where('id', $userId)->decrement('balance', $session->total_cost);
 
             $session->update([
                 'end_time'         => $endTime,
@@ -191,34 +196,35 @@ class ChargingSessionController extends Controller
                 'status'           => 'completed',
             ]);
 
-            // Kembalikan status charger ke available
             if ($session->charger) {
                 $session->charger->update(['status' => 'available']);
             }
 
-            // Update reservasi menjadi completed
             if ($session->reservation) {
                 $session->reservation->update(['status' => 'completed']);
             }
         });
 
         return redirect()->route('driver.charging.receipt', $session->id_session)
-            ->with('success', 'Pengisian daya telah selesai.');
+            ->with('success', 'Pengisian daya telah selesai dan saldo Anda berhasil dipotong.');
     }
 
     /**
-     * Tampilan Struk / Resi Digital Bukti Transaksi (FR-06)[cite: 5]
+     * Tampilan Struk / Resi Digital Bukti Transaksi (FR-06)
      */
     public function showReceipt($id)
     {
+        $userId = auth()->id();
+
+        // 1. Cari Sesi Charging
         $session = ChargingSession::with(['charger.location', 'vehicle'])
-            ->where('user_id', auth()->id())
+            ->where('user_id', $userId)
             ->where('id_session', $id)
             ->first();
 
         if (!$session) {
             $reservation = Reservation::with(['charger.location', 'vehicle'])
-                ->where('user_id', auth()->id())
+                ->where('user_id', $userId)
                 ->where('id_reservation', $id)
                 ->firstOrFail();
 
@@ -227,6 +233,12 @@ class ChargingSessionController extends Controller
             $durationMinutes = max(1, $startTime->diffInMinutes($endTime));
             $kwhDelivered = round(($durationMinutes / 60) * 22, 2);
             $totalCost = round($kwhDelivered * 2466);
+
+            // PEMOTONGAN SALDO LANGSUNG DI DATABASE TANPA PENGECUKAN STATUS IF
+            DB::transaction(function () use ($userId, $totalCost, $reservation) {
+                DB::table('users')->where('id', $userId)->decrement('balance', $totalCost);
+                $reservation->update(['status' => 'completed']);
+            });
 
             $session = (object) [
                 'id_session'       => $reservation->id_reservation,
@@ -238,7 +250,16 @@ class ChargingSessionController extends Controller
                 'energy_kwh'       => $kwhDelivered,
                 'total_cost'       => $totalCost,
             ];
+        } else {
+            DB::transaction(function () use ($userId, $session) {
+                DB::table('users')->where('id', $userId)->decrement('balance', $session->total_cost);
+                $session->update(['status' => 'completed']);
+            });
         }
+
+        // 2. SINKRONISASI AKUN LOGIN UNTUK NAVBAR
+        $freshUser = User::find($userId);
+        auth()->setUser($freshUser);
 
         return view('driver.charging.receipt', compact('session'));
     }

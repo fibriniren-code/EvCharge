@@ -6,6 +6,7 @@ use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\Driver\ChargingSessionController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\TopUpController;
 use Illuminate\Support\Facades\Route;
 
 // --- PUBLIC ROUTES ---
@@ -75,9 +76,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('dashboard');
     })->name('transactions.index');
 
-    Route::get('/balance/topup', function () {
-        return view('dashboard');
-    })->name('topup.index');
+    // TOP UP SALDO (FR-06)
+    Route::get('/balance/topup', [TopUpController::class, 'index'])->name('topup.index');
+    Route::post('/balance/topup', [TopUpController::class, 'store'])->name('topup.store');
 
     Route::get('/support', function () {
         return view('dashboard');
