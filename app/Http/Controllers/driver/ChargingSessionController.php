@@ -273,6 +273,7 @@ class ChargingSessionController extends Controller
 
         // Perhitungan durasi pengisian
         $startTime = Carbon::parse($session->start_time ?? $session->waktu_mulai ?? now());
+
         $secondsElapsed = max(1, $startTime->diffInSeconds(now()));
         
         $powerKw = $session->charger->power_kw ?? 22;
@@ -281,7 +282,7 @@ class ChargingSessionController extends Controller
         $tarifPerKwh = 2466;
         $totalCost = round($kwhDelivered * $tarifPerKwh);
 
-        // Perbarui data akumulasi
+        // Perbarui data akumulasi secara aman
         $columns = Schema::getColumnListing('charging_sessions');
         $updateData = [];
 
