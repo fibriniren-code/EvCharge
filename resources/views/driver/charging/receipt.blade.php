@@ -1,71 +1,101 @@
 <x-app-layout>
-    <div style="max-width: 32rem; margin: 0 auto; padding: 2rem 1.5rem 3rem 1.5rem;">
+    <div style="max-width: 32rem; margin: 2rem auto; padding: 1rem;">
         
-        <!-- Header -->
-        <div style="text-align: center; margin-bottom: 1.5rem;">
-            <div style="display: inline-flex; align-items: center; justify-content: center; width: 3.5rem; height: 3.5rem; background-color: rgba(16, 185, 129, 0.15); border-radius: 50%; color: #34D399; margin-bottom: 0.75rem; border: 1px solid rgba(16, 185, 129, 0.3);">
-                <svg xmlns="http://www.w3.org/2000/svg" style="width: 2rem; height: 2rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+        <!-- Notice Status Success -->
+        @if(session('success'))
+            <div style="background-color: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #6EE7B7; padding: 0.85rem 1rem; border-radius: 0.75rem; margin-bottom: 1.5rem; font-size: 0.85rem; font-weight: 600; text-align: center;">
+                ✓ {{ session('success') }}
             </div>
-            <h1 style="font-size: 1.5rem; font-weight: 800; color: #FFFFFF; margin: 0;">Sesi Charging Selesai</h1>
-            <p style="font-size: 0.85rem; color: #94A3B8; margin-top: 0.25rem;">Silakan selesaikan pembayaran tagihan Anda.</p>
-        </div>
+        @endif
 
-        <!-- Struk Card (FR-05 & FR-06) -->
-        <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 1.25rem; padding: 1.5rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);">
+        <!-- STRUK CARD CONTAINER -->
+        <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 1.25rem; padding: 2rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); text-align: center;">
             
-            <div style="text-align: center; border-bottom: 1px dashed #475569; padding-bottom: 1.25rem; margin-bottom: 1.25rem;">
-                <span style="font-size: 0.75rem; color: #94A3B8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">TOTAL TAGIHAN</span>
-                <h2 style="font-size: 2.25rem; font-weight: 900; color: #34D399; margin: 0.25rem 0;">
-                    Rp {{ number_format($session->total_cost ?? 0, 0, ',', '.') }}
-                </h2>
-                <span style="font-size: 0.75rem; color: #64748B;">ID Transaksi: #{{ $session->id_session ?? $session->id ?? '-' }}</span>
+            <!-- Checkmark Icon -->
+            <div style="width: 3rem; height: 3rem; background-color: rgba(16,185,129,0.1); border: 1px solid #10B981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; color: #10B981; font-size: 1.5rem; font-weight: bold;">
+                ✓
             </div>
 
-            <!-- Detail Biaya -->
-            <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.875rem; margin-bottom: 1.5rem;">
-                <div style="display: flex; justify-content: space-between; color: #CBD5E1;">
-                    <span style="color: #94A3B8;">Lokasi SPKLU</span>
-                    <strong>{{ $session->charger->location->name ?? $session->charger->location->nama_lokasi ?? 'SPKLU Station' }}</strong>
+            <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin: 0 0 0.25rem 0;">
+                Struk Transaksi SPKLU
+            </h2>
+            <p style="font-size: 0.8rem; color: #94A3B8; margin-bottom: 1.75rem;">
+                Pembayaran Berhasil via Auto-Debit Saldo
+            </p>
+
+            @php
+                // 1. Dapatkan KWh
+                $kwh = $session->energy_kwh ?? $session->energy_consumed ?? 0;
+                
+                // Jika kwh di DB masih 0, hitung perkiraan dari durasi
+                $startTime = \Carbon\Carbon::parse($session->start_time ?? $session->waktu_mulai ?? now());
+                $endTime = \Carbon\Carbon::parse($session->end_time ?? $session->waktu_selesai ?? now());
+                $seconds = max(5, $startTime->diffInSeconds($endTime));
+                $minutes = max(1, ceil($seconds / 60));
+
+                if ($kwh <= 0) {
+                    $powerKw = $session->charger->power_kw ?? 22;
+                    $kwh = round(($powerKw / 3600) * $seconds, 2);
+                    if ($kwh <= 0) $kwh = 0.05;
+                }
+
+                // 2. Dapatkan Total Biaya
+                $totalCost = $session->total_cost ?? round($kwh * 2466);
+                if ($totalCost <= 0) {
+                    $totalCost = round($kwh * 2466);
+                }
+            @endphp
+
+            <!-- Table Detail Transaksi -->
+            <div style="display: flex; flex-direction: column; gap: 0.85rem; text-align: left; margin-bottom: 1.5rem; font-size: 0.875rem;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px border-style: dashed; border-color: #334155; padding-bottom: 0.5rem;">
+                    <span style="color: #94A3B8;">No. Transaksi</span>
+                    <strong style="color: #FFFFFF; font-family: monospace;">#EV-TRX-{{ $session->id_session ?? $session->id ?? $session->id_reservation ?? '1' }}</strong>
                 </div>
-                <div style="display: flex; justify-content: space-between; color: #CBD5E1;">
-                    <span style="color: #94A3B8;">Charger</span>
-                    <strong>{{ $session->charger->name ?? ('Charger #'.($session->charger_id ?? '1')) }}</strong>
+
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px border-style: dashed; border-color: #334155; padding-bottom: 0.5rem;">
+                    <span style="color: #94A3B8;">SPKLU Location</span>
+                    <strong style="color: #FFFFFF;">{{ $session->charger->location->name ?? $session->charger->location->nama_lokasi ?? 'SPKLU Location' }}</strong>
                 </div>
-                <div style="display: flex; justify-content: space-between; color: #CBD5E1;">
+
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px border-style: dashed; border-color: #334155; padding-bottom: 0.5rem;">
                     <span style="color: #94A3B8;">Kendaraan</span>
-                    <strong>{{ $session->vehicle->merek ?? $session->vehicle->brand ?? 'EV Vehicle' }}</strong>
+                    <strong style="color: #FFFFFF;">{{ $session->vehicle->merek ?? $session->vehicle->brand ?? 'EV Car' }} {{ $session->vehicle->model ?? '' }}</strong>
                 </div>
-                <div style="display: flex; justify-content: space-between; color: #CBD5E1;">
-                    <span style="color: #94A3B8;">Energi Terpakai</span>
-                    <strong>{{ $session->energy_kwh ?? 0 }} kWh</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; color: #CBD5E1;">
+
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px border-style: dashed; border-color: #334155; padding-bottom: 0.5rem;">
                     <span style="color: #94A3B8;">Durasi Pengisian</span>
-                    <strong>{{ $session->duration_minutes ?? 0 }} Menit</strong>
+                    <strong style="color: #FFFFFF;">{{ $session->duration_minutes ?? $minutes }} Menit</strong>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px border-style: dashed; border-color: #334155; padding-bottom: 0.5rem;">
+                    <span style="color: #94A3B8;">Total Daya (kWh)</span>
+                    <strong style="color: #60A5FA;">{{ number_format($kwh, 2) }} kWh</strong>
                 </div>
             </div>
 
-            <!-- Pilih Metode Pembayaran (FR-06) -->
-            <form action="{{ route('reservations.index') }}" method="POST">
-                @csrf
-                <input type="hidden" name="session_id" value="{{ $session->id_session ?? $session->id ?? '' }}">
+            <hr style="border: none; border-top: 1px dashed #334155; margin: 1.5rem 0;">
 
-                <div style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-size: 0.75rem; color: #94A3B8; font-weight: 700; margin-bottom: 0.5rem; text-transform: uppercase;">Pilih Metode Pembayaran</label>
-                    <select name="payment_method" style="width: 100%; background-color: #0F172A; border: 1px solid #334155; color: #FFFFFF; padding: 0.75rem; border-radius: 0.75rem; font-size: 0.875rem; outline: none;">
-                        <option value="saldo">Saldo EvChargeHub (Rp {{ number_format(auth()->user()->saldo ?? 150000, 0, ',', '.') }})</option>
-                        <option value="qris">QRIS / E-Wallet (Gopay, OVO, ShopeePay)</option>
-                        <option value="va">Virtual Account Bank (BCA, Mandiri, BRI)</option>
-                    </select>
+            <!-- Total Biaya & Saldo -->
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <span style="color: #E2E8F0; font-weight: 700; font-size: 1rem;">Total Potong Saldo</span>
+                    <strong style="color: #F59E0B; font-size: 1.5rem; font-weight: 800;">
+                        Rp {{ number_format($totalCost, 0, ',', '.') }}
+                    </strong>
                 </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
+                    <span style="color: #94A3B8;">Sisa Saldo Akun Anda</span>
+                    <span style="color: #34D399; font-weight: 700;">Rp {{ number_format(auth()->user()->balance ?? 0, 0, ',', '.') }}</span>
+                </div>
+            </div>
 
-                <button type="submit" style="width: 100%; background-color: #10B981; color: #FFFFFF; font-weight: 800; border: none; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.3); transition: all 0.2s;">
-                    Bayar Sekarang
-                </button>
-            </form>
+            <!-- Action Button -->
+            <a href="{{ route('dashboard') }}" style="display: block; width: 100%; background-color: #334155; color: #FFFFFF; font-weight: 700; padding: 0.85rem; border-radius: 0.75rem; text-decoration: none; font-size: 0.9rem; transition: all 0.2s;">
+                Kembali ke Dashboard
+            </a>
 
         </div>
+
     </div>
 </x-app-layout>

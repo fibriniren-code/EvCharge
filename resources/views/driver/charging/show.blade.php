@@ -1,95 +1,67 @@
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-100 leading-tight">
-            {{ __('Sesi Pengisian Daya Aktif') }}
-        </h2>
-    </x-slot>
+@extends('layouts.app')
 
-    <div class="py-6" x-data="chargingMonitor('{{ route('driver.charging.telemetry', $session->id_session) }}')">
-        <div class="max-w-xl mx-auto sm:px-6 lg:px-8 px-4 space-y-6">
-            
-            <!-- Card Monitoring Utama -->
-            <div class="bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-sm text-center">
-                <!-- Status Badge -->
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-6">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>Mengisi Daya (Charging)</span>
-                </div>
-
-                <!-- Display kWh & Timer -->
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                        <p class="text-xs text-slate-400 font-medium">Energi Terpakai</p>
-                        <p class="text-2xl font-black text-emerald-400 mt-1" x-text="kwh + ' kWh'"></p>
-                    </div>
-                    <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                        <p class="text-xs text-slate-400 font-medium">Durasi Berjalan</p>
-                        <p class="text-2xl font-black text-slate-100 mt-1" x-text="duration"></p>
-                    </div>
-                </div>
-
-                <!-- Display Total Biaya -->
-                <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-6">
-                    <p class="text-xs text-slate-400 font-medium">Estimasi Biaya Saat Ini</p>
-                    <p class="text-3xl font-extrabold text-slate-100 mt-1" x-text="'Rp ' + cost.toLocaleString('id-ID')"></p>
-                </div>
-
-                <!-- Tombol Stop Session (FR-04) -->
-                <form action="{{ route('driver.charging.stop', $session->id_session) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghentikan pengisian daya?')">
-                    @csrf
-                    <button type="submit" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg shadow-rose-600/20">
-                        Hentikan Pengisian (Stop Session)
-                    </button>
-                </form>
-            </div>
-
-            <!-- Detail Stasiun & Kendaraan -->
-            <div class="bg-slate-900 border border-slate-800 rounded-lg p-4 text-sm text-slate-300 space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Lokasi / Stasiun:</span>
-                    <span class="font-semibold text-slate-100">{{ $session->charger->location->name ?? 'SPKLU Station' }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Kendaraan:</span>
-                    <span class="font-semibold text-slate-100">{{ $session->vehicle->brand ?? '' }} {{ $session->vehicle->model ?? '-' }}</span>
-                </div>
-            </div>
-
+@section('content')
+<div class="container py-4 max-w-xl mx-auto">
+    <div class="bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl text-white">
+        <div class="flex items-center justify-between mb-4">
+            <span class="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 text-xs font-semibold rounded-full flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-ping"></span> CHARGING ACTIVE
+            </span>
+            <span class="text-xs text-gray-400">ID Sesi: #{{ $session->id_session }}</span>
         </div>
+
+        <h3 class="text-lg font-bold text-white mb-1">{{ $session->charger->location->name ?? 'SPKLU Station' }}</h3>
+        <p class="text-xs text-gray-400 mb-6">{{ $session->charger->name ?? 'Charger Slot' }} • {{ $session->vehicle->brand ?? '' }} ({{ $session->vehicle->license_plate ?? 'BEV' }})</p>
+
+        <!-- Live Metrics Box -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-gray-900 p-4 rounded-xl border border-gray-700/50 text-center">
+                <p class="text-xs text-gray-400 mb-1">Total Energi</p>
+                <h2 class="text-2xl font-black text-cyan-400" id="live-kwh">0.00 <span class="text-xs font-normal">kWh</span></h2>
+            </div>
+            <div class="bg-gray-900 p-4 rounded-xl border border-gray-700/50 text-center">
+                <p class="text-xs text-gray-400 mb-1">Estimasi Biaya</p>
+                <h2 class="text-2xl font-black text-yellow-400" id="live-cost">Rp 0</h2>
+            </div>
+        </div>
+
+        <div class="bg-gray-900 p-4 rounded-xl border border-gray-700/50 text-center mb-6">
+            <p class="text-xs text-gray-400 mb-1">Durasi Pengisian Daya</p>
+            <h1 class="text-3xl font-mono font-bold text-white" id="live-timer">00:00:00</h1>
+        </div>
+
+        <!-- Tombol Stop Session -->
+        <form action="{{ route('driver.charging.stop', $session->id_session) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghentikan pengisian daya?')">
+            @csrf
+            <button type="submit" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm shadow-lg shadow-red-900/30 flex items-center justify-center gap-2 transition">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+                </svg>
+                Berhenti Charging (Stop Session)
+            </button>
+        </form>
     </div>
+</div>
 
-    @push('scripts')
-    <script>
-        function chargingMonitor(telemetryUrl) {
-            return {
-                kwh: '0.00',
-                cost: 0,
-                duration: '00:00:00',
-                timer: null,
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const sessionId = "{{ $session->id_session }}";
 
-                init() {
-                    this.fetchTelemetry();
-                    // Polling data telemetry setiap 3 detik
-                    this.timer = setInterval(() => this.fetchTelemetry(), 3000);
-                },
-
-                fetchTelemetry() {
-                    fetch(telemetryUrl)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.status === 'completed') {
-                                clearInterval(this.timer);
-                                window.location.href = "{{ route('driver.charging.receipt', $session->id_session) }}";
-                            } else {
-                                this.kwh = data.energy_kwh;
-                                this.cost = data.total_cost;
-                                this.duration = data.formatted_time;
-                            }
-                        })
-                        .catch(err => console.error("Gagal mengambil data telemetry:", err));
+    function updateTelemetry() {
+        fetch(`/charging/session/${sessionId}/telemetry`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.energy_kwh !== undefined) {
+                    document.getElementById('live-kwh').innerHTML = `${data.energy_kwh} <span class="text-xs font-normal">kWh</span>`;
+                    document.getElementById('live-cost').innerText = `Rp ${new Intl.NumberFormat('id-ID').format(data.total_cost)}`;
+                    document.getElementById('live-timer').innerText = data.formatted_time || '00:00:00';
                 }
-            }
-        }
-    </script>
-    @endpush
-</x-app-layout>
+            })
+            .catch(err => console.error(err));
+    }
+
+    updateTelemetry();
+    setInterval(updateTelemetry, 3000);
+});
+</script>
+@endsection

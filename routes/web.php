@@ -47,11 +47,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reservations/{id}/timer', [ReservationController::class, 'getTimer'])->name('reservations.timer');
     Route::post('/reservations/{id}/confirm', [ReservationController::class, 'confirm'])->name('reservations.confirm');
     Route::match(['post', 'patch'], '/reservations/{id}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
-    
-    // Stop Charging Reservasi (Mendukung nama route 'reservations.stop' dan 'charging.stop')
-    Route::post('/reservations/{id}/stop', [ReservationController::class, 'stopCharging'])->name('reservations.stop');
 
-    // --- SESI CHARGING REAL-TIME ---
+    // --- SESI CHARGING REAL-TIME & AUTO-DEBIT ---
     Route::get('/scan', function () {
         return view('driver.charging.scan');
     })->name('driver.scan');
@@ -63,8 +60,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/charging/session/{id}', [ChargingSessionController::class, 'monitorSession'])->name('driver.charging.monitor');
     Route::get('/charging/session/{id}/telemetry', [ChargingSessionController::class, 'getTelemetry'])->name('driver.charging.telemetry');
 
-    // Stop Session & Struk Biaya
+    // Stop Session & Pemotongan Saldo (Di-mapping ke ChargingSessionController)
     Route::post('/charging/session/{id}/stop', [ChargingSessionController::class, 'stopSession'])->name('driver.charging.stop');
+    Route::post('/reservations/{id}/stop', [ChargingSessionController::class, 'stopSession'])->name('charging.stop');
+    Route::post('/charging/stop/{id}', [ChargingSessionController::class, 'stopSession'])->name('reservations.stop');
+
+    // Struk / Resi Digital Bukti Transaksi
     Route::get('/charging/receipt/{id_session}', [ChargingSessionController::class, 'showReceipt'])->name('driver.charging.receipt');
 
     // --- ULASAN & FEEDBACK ---
