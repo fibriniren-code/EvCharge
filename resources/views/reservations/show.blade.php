@@ -25,7 +25,7 @@
     </div>
 
     <!-- Tombol Berhenti Charging -->
-    <form action="{{ route('charging.stop', $reservation->id) }}" method="POST" class="mt-4">
+    <form action="{{ route('driver.charging.stop', $reservation->id_reservation) }}" method="POST" class="mt-4">
     @csrf
     <button type="submit" 
             onclick="return confirm('Apakah Anda yakin ingin menghentikan sesi pengisian daya ini?')"
@@ -39,7 +39,7 @@
 
     {{-- Box Countdown Timer --}}
     @if($reservation->status === 'pending')
-    <div class="card bg-secondary text-white text-center p-4 mb-4" id="timer-box">
+    <div class="card bg-secondary text-white text-center p-4 mb-4 mt-4" id="timer-box">
         <h4>Sisa Waktu Holding Slot:</h4>
         <h1 class="display-4 fw-bold text-warning" id="countdown-timer">00:00</h1>
         <p class="small text-light">Selesaikan konfirmasi sebelum waktu habis agar slot tidak terlepas secara otomatis.</p>
@@ -63,6 +63,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const reservationId = "{{ $reservation->id_reservation }}";
 
     function fetchTimer() {
+        if (!timerElement) return;
+
         fetch(`/reservations/${reservationId}/timer`)
             .then(response => response.json())
             .then(data => {
@@ -81,8 +83,10 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => console.error('Error fetching timer:', error));
     }
 
-    fetchTimer();
-    setInterval(fetchTimer, 3000);
+    if (timerElement) {
+        fetchTimer();
+        setInterval(fetchTimer, 3000);
+    }
 });
 </script>
 @endsection
