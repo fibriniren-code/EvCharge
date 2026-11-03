@@ -2,6 +2,13 @@
     <div class="py-10 min-h-screen">
         <div class="max-w-md mx-auto px-4 sm:px-6">
             
+            <!-- Notice Status Success -->
+            @if(session('success'))
+                <div class="bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 p-3.5 rounded-xl mb-6 text-sm font-semibold text-center">
+                    ✓ {{ session('success') }}
+                </div>
+            @endif
+
             <!-- Struk Digital Card -->
             <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
                 
@@ -16,47 +23,69 @@
                     <p class="text-xs text-slate-400 mt-1">Bukti Transaksi Resmi EVChargeHub</p>
                 </div>
 
+                @php
+                    // 1. Dapatkan KWh & Durasi dengan Fallback
+                    $kwh = $session->energy_kwh ?? $session->energy_consumed ?? 0;
+                    
+                    $startTime = \Carbon\Carbon::parse($session->start_time ?? $session->waktu_mulai ?? now());
+                    $endTime = \Carbon\Carbon::parse($session->end_time ?? $session->waktu_selesai ?? now());
+                    $seconds = max(5, $startTime->diffInSeconds($endTime));
+                    $minutes = $session->duration_minutes ?? max(1, ceil($seconds / 60));
+
+                    if ($kwh <= 0) {
+                        $powerKw = $session->charger->power_kw ?? 22;
+                        $kwh = round(($powerKw / 3600) * $seconds, 2);
+                        if ($kwh <= 0) $kwh = 0.05;
+                    }
+
+                    // 2. Total Biaya
+                    $totalCost = $session->total_cost ?? round($kwh * 2466);
+                    if ($totalCost <= 0) {
+                        $totalCost = round($kwh * 2466);
+                    }
+                @endphp
+
                 <!-- Detail Rincian -->
                 <div class="p-6 space-y-4 text-sm">
                     <div class="flex justify-between items-center py-2 border-b border-slate-800/60">
-                        <span class="text-slate-400">ID Sesi</span>
-                        <span class="font-mono font-bold text-white">EV-{{ $session->id_session }}</span>
+                        <span class="text-slate-400">ID Sesi / Transaksi</span>
+                        <span class="font-mono font-bold text-white">#EV-TRX-{{ $session->id_session ?? $session->id ?? $session->id_reservation ?? '1' }}</span>
                     </div>
 
                     <div class="flex justify-between items-center py-2 border-b border-slate-800/60">
-                        <span class="text-slate-400">Waktu Muka</span>
-                        <span class="text-slate-200 font-medium">{{ \Carbon\Carbon::parse($session->start_time)->format('d M Y, H:i') }} WIB</span>
+                        <span class="text-slate-400">Waktu Mulai</span>
+                        <span class="text-slate-200 font-medium">{{ $startTime->format('d M Y, H:i') }} WIB</span>
                     </div>
 
                     <div class="flex justify-between items-center py-2 border-b border-slate-800/60">
                         <span class="text-slate-400">Lokasi SPKLU</span>
                         <span class="text-slate-200 font-medium text-right max-w-[200px] leading-tight">
-                            {{ $session->charger->location->nama_lokasi ?? 'SPKLU Station' }}
+                            {{ $session->charger->location->name ?? $session->charger->location->nama_lokasi ?? 'SPKLU Location' }}
                         </span>
                     </div>
 
                     <div class="flex justify-between items-center py-2 border-b border-slate-800/60">
                         <span class="text-slate-400">Kendaraan</span>
                         <span class="text-slate-200 font-medium">
-                            {{ $session->vehicle->brand ?? 'EV' }} {{ $session->vehicle->model ?? '' }}
+                            {{ $session->vehicle->merek ?? $session->vehicle->brand ?? 'EV Car' }} {{ $session->vehicle->model ?? '' }}
                         </span>
                     </div>
 
                     <div class="flex justify-between items-center py-2 border-b border-slate-800/60">
                         <span class="text-slate-400">Durasi Charging</span>
-                        <span class="text-slate-200 font-medium">{{ $session->duration_minutes ?? 1 }} Menit</span>
+                        <span class="text-slate-200 font-medium">{{ $minutes }} Menit</span>
                     </div>
 
                     <div class="flex justify-between items-center py-2 border-b border-slate-800/60">
                         <span class="text-slate-400">Energi Terisi</span>
-                        <span class="text-blue-400 font-bold">{{ $session->energy_kwh }} kWh</span>
+                        <span class="text-blue-400 font-bold">{{ number_format($kwh, 2) }} kWh</span>
                     </div>
 
                     <!-- Pembayaran & Saldo -->
                     <div class="pt-4 space-y-2">
                         <div class="flex justify-between items-center text-slate-400">
-                            <span>Total Biaya</span>
-                            <span class="text-white font-bold text-base">Rp {{ number_format($session->total_cost, 0, ',', '.') }}</span>
+                            <span>Total Potong Saldo</span>
+                            <span class="text-amber-400 font-bold text-lg">Rp {{ number_format($totalCost, 0, ',', '.') }}</span>
                         </div>
                         <div class="flex justify-between items-center text-slate-400">
                             <span>Metode Pembayaran</span>
@@ -64,7 +93,7 @@
                         </div>
                         <div class="flex justify-between items-center text-slate-400 pt-2 border-t border-slate-800">
                             <span>Sisa Saldo Anda</span>
-                            <span class="text-slate-200 font-mono font-bold">Rp {{ number_format(Auth::user()->balance ?? 0, 0, ',', '.') }}</span>
+                            <span class="text-emerald-400 font-mono font-bold">Rp {{ number_format(Auth::user()->balance ?? auth()->user()->balance ?? 0, 0, ',', '.') }}</span>
                         </div>
                     </div>
                 </div>
