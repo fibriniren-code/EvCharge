@@ -48,7 +48,7 @@
                 <!-- Detail Rincian -->
                 <div class="p-6 space-y-4 text-sm">
                     <div class="flex justify-between items-center py-2 border-b border-slate-800/60">
-                        <span class="text-slate-400">ID Sesi / Transaksi</span>
+                        <span class="text-slate-400">ID Transaksi</span>
                         <span class="font-mono font-bold text-white">#EV-TRX-{{ $session->id_session ?? $session->id ?? $session->id_reservation ?? '1' }}</span>
                     </div>
 
