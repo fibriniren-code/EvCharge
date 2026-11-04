@@ -6,6 +6,11 @@ use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\Driver\ChargingSessionController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
+use App\Http\Controllers\Admin\StationController;
+use App\Http\Controllers\Admin\TariffController;
+use App\Http\Controllers\TopUpController;
 use Illuminate\Support\Facades\Route;
 
 // --- PUBLIC ROUTES ---
