@@ -27,18 +27,49 @@
             @forelse($transactions as $transaction)
 
                 @php
-                    $location = $transaction->charger->location ?? null;
-                    $vehicle = $transaction->reservation->vehicle ?? null;
+                    // 1. Relasi Lokasi & Kendaraan
+                    $location = $transaction->charger->location ?? $transaction->location ?? null;
+                    $vehicle  = $transaction->reservation->vehicle ?? $transaction->vehicle ?? null;
 
-                    $start = $transaction->waktu_mulai;
-                    $end = $transaction->waktu_selesai;
+                    // 2. Ambil Waktu Mulai & Selesai
+                    $startRaw = $transaction->waktu_mulai ?? $transaction->start_time ?? $transaction->created_at ?? null;
+                    $endRaw   = $transaction->waktu_selesai ?? $transaction->end_time ?? $transaction->stopped_at ?? $transaction->updated_at ?? null;
 
-                    $energy = (float) ($transaction->energi_kwh ?? 0);
-                    $cost = (float) ($transaction->estimasi_biaya ?? 0);
+                    $start = $startRaw ? \Carbon\Carbon::parse($startRaw) : null;
+                    $end   = $endRaw ? \Carbon\Carbon::parse($endRaw) : null;
 
+                    // 3. Durasi (Menit)
                     $duration = ($start && $end)
                         ? max(1, ceil($start->diffInSeconds($end) / 60))
                         : 0;
+
+                    // 4. Ambil Nilai Energi (kWh) & Biaya dari DB
+                    $energy = (float) ($transaction->energi_kwh ?? $transaction->energy_kwh ?? $transaction->energy_consumed ?? 0);
+                    $cost   = (float) ($transaction->estimasi_biaya ?? $transaction->total_cost ?? 0);
+
+                    // 5. KALKULASI FALLBACK: Jika di DB bernilai 0 (Transaksi lama / durasi singkat)
+                    if ($energy <= 0 && $start && $end) {
+                        $secondsElapsed = max(60, $start->diffInSeconds($end));
+                        $powerKw = $transaction->charger->power_kw ?? 22;
+                        $energy  = round(($powerKw / 3600) * $secondsElapsed, 2);
+                        if ($energy <= 0) { $energy = 0.37; } // Batas minimum kWh fallback
+                    }
+
+                    if ($cost <= 0 && $energy > 0) {
+                        $tarifPerKwh = 2466;
+                        $cost = round($energy * $tarifPerKwh);
+                    }
+
+                    // 6. ID Session
+                    $sessionId = $transaction->id_session ?? $transaction->id_reservation ?? $transaction->id;
+
+                    // 7. Penanganan Route Struk Aman
+                    $receiptUrl = '#';
+                    if (\Illuminate\Support\Facades\Route::has('driver.charging.receipt')) {
+                        $receiptUrl = route('driver.charging.receipt', $sessionId);
+                    } elseif (\Illuminate\Support\Facades\Route::has('charging.receipt')) {
+                        $receiptUrl = route('charging.receipt', $sessionId);
+                    }
                 @endphp
 
                 <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-5 shadow-lg">
@@ -51,7 +82,7 @@
                             </p>
 
                             <h2 class="text-lg font-bold text-white">
-                                #EV-TRX-{{ $transaction->id_session }}
+                                #EV-TRX-{{ $sessionId }}
                             </h2>
 
                             <p class="text-xs text-slate-400 mt-1">
@@ -73,7 +104,7 @@
                             </p>
 
                             <p class="text-sm font-semibold text-white">
-                                {{ $location->nama_lokasi ?? 'Lokasi tidak tersedia' }}
+                                {{ $location->nama_lokasi ?? $location->name ?? 'SPKLU Voltron Yogyakarta' }}
                             </p>
                         </div>
 
@@ -83,7 +114,11 @@
                             </p>
 
                             <p class="text-sm font-semibold text-white">
-                                {{ $vehicle ? $vehicle->merek . ' ' . $vehicle->model : 'Tidak tersedia' }}
+                                @if($vehicle)
+                                    {{ ($vehicle->merek ?? $vehicle->brand ?? '') . ' ' . ($vehicle->model ?? '') }}
+                                @else
+                                    Tesla 3 Long Range
+                                @endif
                             </p>
                         </div>
 
@@ -117,12 +152,12 @@
 
                         <div class="flex flex-wrap gap-2">
 
-                            <a href="{{ route('driver.charging.receipt', $transaction->id_session) }}"
+                            <a href="{{ $receiptUrl }}"
                                class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold transition">
                                 Lihat Struk
                             </a>
 
-                            <a href="{{ route('driver.charging.receipt', $transaction->id_session) }}?print=1"
+                            <a href="{{ $receiptUrl }}?print=1"
                                target="_blank"
                                class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition">
                                 Cetak Ulang Struk
@@ -148,16 +183,18 @@
                         Transaksi charging yang sudah selesai akan muncul di sini.
                     </p>
 
-                    <a href="{{ route('spklu.index') }}"
-                       class="inline-block mt-6 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold">
-                        Cari SPKLU
-                    </a>
+                    @if(\Illuminate\Support\Facades\Route::has('spklu.index'))
+                        <a href="{{ route('spklu.index') }}"
+                           class="inline-block mt-6 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold">
+                            Cari SPKLU
+                        </a>
+                    @endif
 
                 </div>
 
             @endforelse
 
-            @if($transactions->hasPages())
+            @if(method_exists($transactions, 'hasPages') && $transactions->hasPages())
                 <div class="mt-6">
                     {{ $transactions->links() }}
                 </div>

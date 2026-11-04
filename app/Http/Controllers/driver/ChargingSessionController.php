@@ -61,9 +61,19 @@ class ChargingSessionController extends Controller
                 ], 404);
             }
 
-            $charger = Charger::find($reservation->charger_id);
+            $charger = Charger::where('id_charger', $reservation->charger_id)->first();
         } elseif ($request->qr_code) {
-            $charger = Charger::where('qr_code', $request->qr_code)->first();
+            $qrInput = trim($request->qr_code);
+
+            // Ekstrak angka saja dari string (misal 'CHG-VOLTRON-02' -> '2')
+            $numericId = preg_replace('/[^0-9]/', '', $qrInput);
+
+            // Query HANYA menggunakan kolom 'id_charger' yang terdaftar di schema DB
+            $charger = Charger::where('id_charger', $qrInput)
+                ->when($numericId, function ($q) use ($numericId) {
+                    return $q->orWhere('id_charger', $numericId);
+                })
+                ->first();
 
             if (!$charger) {
                 return response()->json([
@@ -129,7 +139,7 @@ class ChargingSessionController extends Controller
             ->findOrFail($request->reservation_id);
 
         return DB::transaction(function () use ($reservation) {
-            $charger = Charger::findOrFail($reservation->charger_id);
+            $charger = Charger::where('id_charger', $reservation->charger_id)->firstOrFail();
 
             $charger->update([
                 'status' => 'occupied'
@@ -180,8 +190,8 @@ class ChargingSessionController extends Controller
         if ($session->status !== 'running') {
             return response()->json([
                 'status' => $session->status,
-                'energy_kwh' => $session->energi_kwh,
-                'total_cost' => $session->estimasi_biaya,
+                'energy_kwh' => $session->energi_kwh ?? $session->energy_kwh ?? 0,
+                'total_cost' => $session->estimasi_biaya ?? $session->total_cost ?? 0,
                 'duration' => $session->waktu_mulai && $session->waktu_selesai
                     ? Carbon::parse($session->waktu_mulai)
                         ->diffInMinutes(Carbon::parse($session->waktu_selesai))
@@ -302,7 +312,10 @@ class ChargingSessionController extends Controller
             'reservation.vehicle',
         ])
             ->where('user_id', auth()->id())
-            ->where('id_session', $id)
+            ->where(function ($query) use ($id) {
+                $query->where('id_session', $id)
+                    ->orWhere('id_reservation', $id);
+            })
             ->firstOrFail();
 
         return view('driver.charging.receipt', compact('session'));
