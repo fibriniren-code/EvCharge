@@ -29,7 +29,7 @@ class ReservationController extends Controller
     {
         $locationModel = Location::findOrFail($location);
         $chargerModel  = Charger::where('location_id', $locationModel->id_location)
-                                 ->findOrFail($charger);
+                                  ->findOrFail($charger);
 
         $vehicles = Vehicle::where('user_id', auth()->id())->get();
 
@@ -86,8 +86,8 @@ class ReservationController extends Controller
             return back()->withErrors(['start_time' => 'Slot waktu yang dipilih sudah dipesan pengguna lain.'])->withInput();
         }
 
-        // Holding Slot diset MAX 10 MENIT
-        $expiresAt = Carbon::now()->addMinutes(10);
+        // Holding Slot diset MAX 3 JAM (180 MENIT)
+        $expiresAt = Carbon::now()->addHours(3);
 
         $reservation = DB::transaction(function () use ($validated, $charger, $startTime, $endTime, $expiresAt) {
             $res = Reservation::create([
@@ -105,9 +105,8 @@ class ReservationController extends Controller
             return $res;
         });
 
-        // Redirect ke detail reservasi agar driver dapat melihat ID Booking / Catatan terlebih dahulu
         return redirect()->route('reservations.show', $reservation->id_reservation)
-            ->with('success', 'Reservasi berhasil dibuat. Slot Anda ditahan selama 10 menit.');
+            ->with('success', 'Reservasi berhasil dibuat. Slot Anda ditahan selama maksimal 3 jam.');
     }
 
     private function findUserReservation($id)
@@ -125,17 +124,26 @@ class ReservationController extends Controller
         return view('driver.reservations.show', compact('reservation'));
     }
 
+    /**
+     * PERBAIKAN SOLUSI 1: Hitung 3 jam langsung dari created_at
+     */
     public function getTimer($id)
     {
         $reservation = $this->findUserReservation($id);
 
-        $remainingSeconds = Carbon::now()->diffInSeconds($reservation->expires_at, false);
+        // Paksa kalkulasi 3 jam daricreated_at
+        $createdAt = Carbon::parse($reservation->created_at);
+        $expiresAt = (clone $createdAt)->addHours(3);
+
+        $remainingSeconds = max(0, Carbon::now()->diffInSeconds($expiresAt, false));
+        $isExpired = Carbon::now()->greaterThan($expiresAt);
 
         return response()->json([
-            'status'     => $reservation->status,
-            'expires_at' => $reservation->expires_at,
-            'remaining'  => max(0, $remainingSeconds),
-            'is_expired' => $remainingSeconds <= 0 && $reservation->status === 'pending',
+            'status'            => $isExpired && $reservation->status === 'pending' ? 'expired' : $reservation->status,
+            'expires_at'        => $expiresAt->toIso8601String(),
+            'remaining'         => $remainingSeconds,
+            'remaining_seconds' => $remainingSeconds,
+            'is_expired'        => $isExpired && $reservation->status === 'pending',
         ]);
     }
 
@@ -144,7 +152,10 @@ class ReservationController extends Controller
         $reservation = $this->findUserReservation($id);
 
         if ($reservation->status === 'pending') {
-            if (Carbon::now()->greaterThan($reservation->expires_at)) {
+            // Pengecekan 3 jam dari created_at
+            $expiresAt = Carbon::parse($reservation->created_at)->addHours(3);
+
+            if (Carbon::now()->greaterThan($expiresAt)) {
                 $reservation->update(['status' => 'expired']);
                 if ($reservation->charger) {
                     $reservation->charger->update(['status' => 'available']);
@@ -183,7 +194,7 @@ class ReservationController extends Controller
     public function getSlotStatuses($location_id)
     {
         Reservation::where('status', 'pending')
-            ->where('expires_at', '<', now())
+            ->where('created_at', '<', now()->subHours(3))
             ->get()
             ->each(function ($res) {
                 $res->update(['status' => 'expired']);
@@ -195,7 +206,7 @@ class ReservationController extends Controller
         $chargers = Charger::where('location_id', $location_id)
             ->withCount(['reservations as active_reservations_count' => function ($query) {
                 $query->whereIn('status', ['pending', 'confirmed', 'active'])
-                      ->where('expires_at', '>', now());
+                      ->where('created_at', '>', now()->subHours(3));
             }])
             ->get();
 
@@ -223,7 +234,9 @@ class ReservationController extends Controller
             $kwhDelivered = 0.05;
         }
 
-        $totalCost = round($kwhDelivered * 2466);
+        // Rumus Perkalian Biaya
+        $tarifPerKwh = 2466;
+        $totalCost = round($kwhDelivered * $tarifPerKwh);
 
         // 2. PENGECEKAN KECUKUPAN SALDO
         if ($user->balance < $totalCost) {
@@ -247,7 +260,7 @@ class ReservationController extends Controller
                 $reservation->charger->update(['status' => 'available']);
             }
 
-            // Buat Record Sesi Pengisian (Dukungan penuh nama kolom alternatif)
+            // Buat Record Sesi Pengisian
             try {
                 $columns = Schema::getColumnListing('charging_sessions');
                 $sessionData = [];
@@ -300,7 +313,6 @@ class ReservationController extends Controller
                     $sessionData['total_cost'] = $totalCost;
                 }
 
-                // Cek Enum Status Aset
                 if (in_array('status', $columns)) {
                     $sessionData['status'] = 'completed';
                 }
@@ -310,7 +322,7 @@ class ReservationController extends Controller
                     return $session->getKey();
                 }
             } catch (\Exception $e) {
-                // Abaikan jika penulisan log charging_sessions gagal
+                // Fallback jika penulisan charging_sessions error
             }
 
             return $reservation->id_reservation;

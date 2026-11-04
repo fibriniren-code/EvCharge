@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
 class ChargingSessionController extends Controller
 {
     /**
-     * Helper privat untuk mencari sesi berdasarkan ID secara aman
+     * Helper privat untuk mencari sesi berdasarkan ID secara aman (id_session ATAU id_reservation)
      */
     private function findUserSession($id)
     {
@@ -28,6 +28,13 @@ class ChargingSessionController extends Controller
                 }
                 if (in_array('id', $columns)) {
                     $q->orWhere('id', $id);
+                }
+                // PERBAIKAN PENTING: Izinkan pencarian berdasarkan ID Reservasi agar tidak 404
+                if (in_array('id_reservation', $columns)) {
+                    $q->orWhere('id_reservation', $id);
+                }
+                if (in_array('reservation_id', $columns)) {
+                    $q->orWhere('reservation_id', $id);
                 }
             })
             ->firstOrFail();
@@ -273,7 +280,6 @@ class ChargingSessionController extends Controller
 
         // Perhitungan durasi pengisian
         $startTime = Carbon::parse($session->start_time ?? $session->waktu_mulai ?? now());
-
         $secondsElapsed = max(1, $startTime->diffInSeconds(now()));
         
         $powerKw = $session->charger->power_kw ?? 22;
@@ -322,15 +328,15 @@ class ChargingSessionController extends Controller
         $startTime = Carbon::parse($session->start_time ?? $session->waktu_mulai ?? $endTime);
         
         // 1. Dapatkan durasi dalam DETIK agar pengisian singkat tetap terhitung
-        $secondsElapsed = max(5, $startTime->diffInSeconds($endTime)); // Minimal dianggap 5 detik
-        $durationMinutes = max(1, ceil($secondsElapsed / 60)); // Minimal 1 menit
+        $secondsElapsed = max(5, $startTime->diffInSeconds($endTime));
+        $durationMinutes = max(1, ceil($secondsElapsed / 60));
 
         $powerKw = $session->charger->power_kw ?? 22;
         
-        // 2. Hitung total kWh berbasis detik (dengan batas minimal kWh)
+        // 2. Hitung total kWh berbasis detik
         $kwhDelivered = round(($powerKw / 3600) * $secondsElapsed, 2);
         if ($kwhDelivered <= 0) {
-            $kwhDelivered = 0.05; // Nilai minimal kWh jika tes instan
+            $kwhDelivered = 0.05;
         }
 
         // 3. Total Biaya
@@ -345,7 +351,6 @@ class ChargingSessionController extends Controller
 
         // Eksekusi Pemotongan Saldo & Simpan Data secara Atomic
         DB::transaction(function () use ($session, $user, $totalCost, $endTime, $durationMinutes, $kwhDelivered) {
-            // Potong Saldo Akun Driver
             DB::table('users')->where('id', $user->id)->decrement('balance', $totalCost);
 
             $columns = Schema::getColumnListing('charging_sessions');
@@ -433,7 +438,6 @@ class ChargingSessionController extends Controller
             ];
         }
 
-        // Refresh instance User agar saldo terbaru langsung muncul di navbar atas
         auth()->setUser(User::find($userId));
 
         return view('driver.charging.receipt', compact('session'));

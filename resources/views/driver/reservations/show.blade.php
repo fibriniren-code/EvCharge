@@ -102,20 +102,19 @@
                 </div>
             </div>
 
-            <!-- TAHAP 1: JIKA STATUS PENDING (TAHAP PENGECEKAN DATA 10 MENIT) -->
+            <!-- TAHAP 1: JIKA STATUS PENDING (TAHAP PENGECEKAN DATA MAX 3 JAM) -->
             @if($reservation->status === 'pending')
                 <div style="background-color: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 1rem; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem;">
                     <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #FBBF24; text-transform: uppercase; letter-spacing: 0.05em;">
-                        SISA WAKTU HOLDING SLOT (10 MENIT)
+                        SISA WAKTU HOLDING SLOT (MAX 3 JAM)
                     </span>
                     <h1 id="countdown-timer" style="font-size: 2.25rem; font-weight: 800; color: #F59E0B; margin: 0.25rem 0; font-family: monospace;">
-                        --:--
+                        --:--:--
                     </h1>
-                    <small style="color: #94A3B8; font-size: 0.75rem;">Slot Anda ditahan selama 10 menit. Tekan konfirmasi untuk membuka QR Code aktivasi.</small>
+                    <small style="color: #94A3B8; font-size: 0.75rem;">Slot Anda ditahan selama maksimal 3 jam. Tekan konfirmasi untuk membuka QR Code aktivasi.</small>
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <!-- Tombol Lanjut ke Tahap Berikutnya (Konfirmasi & QR Aktivasi) -->
                     <form action="{{ route('reservations.confirm', $reservation->id_reservation) }}" method="POST">
                         @csrf
                         <button type="submit" style="width: 100%; background-color: #2563EB; color: #FFFFFF; font-weight: 800; border: none; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
@@ -131,14 +130,13 @@
                     </form>
                 </div>
 
-            <!-- TAHAP 2: JIKA STATUS CONFIRMED (TAMPILKAN BOX QR CODE & TOMBOL AKTIVASI CHARGE) -->
+            <!-- TAHAP 2: JIKA STATUS CONFIRMED -->
             @elseif($reservation->status === 'confirmed')
                 <div style="background-color: #0F172A; border: 1px dashed #3B82F6; border-radius: 1rem; padding: 1.5rem; text-align: center; margin-bottom: 1.5rem;">
                     <span style="display: block; font-size: 0.75rem; font-weight: 800; color: #60A5FA; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">
                         SCAN QR CODE INI PADA MESIN SPKLU
                     </span>
                     
-                    <!-- Display QR Code Generator -->
                     <div style="background: white; padding: 1rem; display: inline-block; border-radius: 0.75rem; margin-bottom: 0.75rem;">
                         <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{ $reservation->id_reservation }}" alt="QR Code Reservasi" style="width: 160px; height: 160px;">
                     </div>
@@ -149,7 +147,6 @@
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <!-- Tombol Mengarah Aktivasi Charge via Scan / Input ID -->
                     <a href="{{ route('driver.scan', ['booking_id' => $reservation->id_reservation]) }}" style="width: 100%; background-color: #10B981; color: #FFFFFF; font-weight: 800; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; text-decoration: none; text-align: center; display: block; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
                         ⚡ Mulai / Aktivasi Charging (Scan / Input ID)
                     </a>
@@ -162,7 +159,7 @@
                     </form>
                 </div>
 
-            <!-- TAHAP 3: CHARGING BERJALAN (ACTIVE / CHARGING) -->
+            <!-- TAHAP 3: CHARGING BERJALAN -->
             @elseif(in_array($reservation->status, ['active', 'charging']))
                 <div style="background-color: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 1rem; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem;">
                     <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #60A5FA; text-transform: uppercase; letter-spacing: 0.05em;">
@@ -186,11 +183,11 @@
                     </form>
                 </div>
 
-            <!-- TAHAP 4: RESERVASI DIBATALKAN -->
+            <!-- TAHAP 4: RESERVASI DIBATALKAN / EXPIRED -->
             @elseif(in_array($reservation->status, ['cancelled', 'expired']))
                 <div style="background-color: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 1rem; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem;">
                     <h2 style="font-size: 1.5rem; font-weight: 800; color: #EF4444; margin: 0.25rem 0;">
-                        ✖ Reservasi Telah Dibatalkan
+                        ✖ Reservasi Telah Dibatalkan / Kadaluarsa
                     </h2>
                 </div>
 
@@ -200,7 +197,7 @@
                     </a>
                 </div>
 
-            <!-- TAHAP 5: COMPLETED / STOPPED -->
+            <!-- TAHAP 5: COMPLETED -->
             @else
                 <div style="background-color: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 1rem; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem;">
                     <h2 style="font-size: 1.5rem; font-weight: 800; color: #10B981; margin: 0.25rem 0;">
@@ -225,28 +222,51 @@
         const reservationId = "{{ $reservation->id_reservation }}";
         const timerElement = document.getElementById('countdown-timer');
 
+        // Parse ISO format string secara aman
+        const createdAtTime = new Date("{{ \Carbon\Carbon::parse($reservation->created_at)->toIso8601String() }}").getTime();
+        const expiresAtTime = createdAtTime + (3 * 60 * 60 * 1000); // 3 Jam
+
         function checkTimer() {
             if (!timerElement) return;
 
             fetch(`/reservations/${reservationId}/timer`)
                 .then(response => response.json())
                 .then(data => {
-                    const secondsLeft = data.remaining !== undefined ? data.remaining : data.remaining_seconds;
+                    const secondsLeft = data.remaining_seconds !== undefined ? data.remaining_seconds : data.remaining;
 
                     if (data.is_expired || data.status === 'expired' || secondsLeft <= 0) {
-                        timerElement.innerText = "00:00";
+                        timerElement.innerText = "00:00:00";
                         timerElement.style.color = "#EF4444";
                         setTimeout(() => window.location.reload(), 1500);
                         return;
                     }
 
                     const totalSeconds = Math.floor(secondsLeft);
-                    const minutes = Math.floor(totalSeconds / 60);
+                    const hours = Math.floor(totalSeconds / 3600);
+                    const minutes = Math.floor((totalSeconds % 3600) / 60);
                     const seconds = Math.floor(totalSeconds % 60);
 
-                    timerElement.innerText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    timerElement.innerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    timerElement.style.color = "#F59E0B";
                 })
-                .catch(error => console.error('Error fetching timer:', error));
+                .catch(error => {
+                    // Fallback hitung mundur jika API timer offline
+                    const now = new Date().getTime();
+                    const distance = expiresAtTime - now;
+
+                    if (distance <= 0) {
+                        timerElement.innerText = "00:00:00";
+                        timerElement.style.color = "#EF4444";
+                        return;
+                    }
+
+                    const hours = Math.floor(distance / (1000 * 60 * 60));
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                    timerElement.innerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    timerElement.style.color = "#F59E0B";
+                });
         }
 
         checkTimer();

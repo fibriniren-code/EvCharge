@@ -27,6 +27,23 @@
                         <a href="{{ route('cars.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('cars.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('cars.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Mobil Saya</a>
                         <a href="{{ route('reservations.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('reservations.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('reservations.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Reservasi Saya</a>
                         <a href="{{ route('driver.scan') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('driver.scan') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('driver.scan') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Scan QR</a>
+
+                        <!-- TOMBOL PANTAU CHARGING (Hanya tampil jika Driver sedang charging) -->
+                        @php
+                            $activeChargingSession = \App\Models\ChargingSession::where('user_id', Auth::id())
+                                ->whereNotIn('status', ['completed', 'stopped', 'finished', 'done'])
+                                ->latest()
+                                ->first();
+                        @endphp
+
+                        @if($activeChargingSession)
+                            <a href="{{ route('driver.charging.monitor', $activeChargingSession->getKey()) }}" 
+                               style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 700; text-decoration: none; color: #34D399; background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4);" 
+                               class="animate-pulse">
+                                <span style="width: 0.5rem; height: 0.5rem; border-radius: 50%; background-color: #34D399; display: inline-block;"></span>
+                                Pantau Charging
+                            </a>
+                        @endif
                     @endif
                 </div>
             </div>

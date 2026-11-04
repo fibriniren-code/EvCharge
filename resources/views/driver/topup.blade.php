@@ -16,12 +16,24 @@
             <!-- Card Utama -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-6 sm:p-8">
                 
+                {{-- ALERT SUKSES DENGAN TOMBOL SELESAI --}}
                 @if (session('success'))
-                    <div class="mb-6 text-sm font-medium text-emerald-300 bg-emerald-950/80 border border-emerald-800 p-4 rounded-xl flex items-center space-x-2">
-                        <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <span>{{ session('success') }}</span>
+                    <div class="mb-6 p-4 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="text-sm font-semibold">{{ session('success') }}</span>
+                        </div>
+
+                        {{-- TOMBOL SELESAI --}}
+                        <a href="{{ route('spklu.index') }}" 
+                           class="inline-flex items-center px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition shadow-md flex-shrink-0 ml-3">
+                            Selesai
+                            <svg class="w-3.5 h-3.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                            </svg>
+                        </a>
                     </div>
                 @endif
 
