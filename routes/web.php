@@ -13,15 +13,17 @@ use App\Http\Controllers\Admin\TariffController;
 use App\Http\Controllers\TopUpController;
 use Illuminate\Support\Facades\Route;
 
-// --- PUBLIC ROUTES ---
+
+// PUBLIC ROUTES
 Route::get('/', function () {
     return view('welcome');
 });
 
-// --- AUTHENTICATED ROUTES ---
+
+// AUTHENTICATED ROUTES
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    // Dashboard Utama (Auto Redirect berdasarkan Role)
+    // DASHBOARD
     Route::get('/dashboard', function () {
         if (auth()->check() && auth()->user()->role === 'admin') {
             return redirect()->route('admin.dashboard');
@@ -30,25 +32,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('dashboard');
     })->name('dashboard');
 
-    // --- PROFILE ---
+
+    // PROFILE
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // --- KELOLA KENDARAAN LISTRIK (VEHICLES) ---
+
+    // VEHICLES
     Route::get('/vehicles', [VehicleController::class, 'index'])->name('cars.index');
     Route::get('/vehicles/create', [VehicleController::class, 'create'])->name('cars.create');
     Route::post('/vehicles', [VehicleController::class, 'store'])->name('vehicles.store');
     Route::put('/vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
     Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy'])->name('vehicles.destroy');
 
-    // --- SPKLU & LOKASI ---
+
+    // SPKLU
     Route::get('/spklu', [LocationController::class, 'index'])->name('spklu.index');
     Route::get('/spklu/{id}', [LocationController::class, 'show'])->name('spklu.show');
     Route::get('/api/locations/nearby', [LocationController::class, 'getNearbyLocations'])->name('api.locations.nearby');
     Route::get('/spklu/{location_id}/chargers/status', [ReservationController::class, 'getSlotStatuses'])->name('chargers.status');
 
-    // --- RESERVASI SLOT CHARGER ---
+
+    // RESERVATIONS
     Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
     Route::get('/location/{location}/charger/{charger}/reserve', [ReservationController::class, 'create'])->name('reservations.create');
     Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
@@ -57,35 +63,55 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/reservations/{id}/confirm', [ReservationController::class, 'confirm'])->name('reservations.confirm');
     Route::match(['post', 'patch'], '/reservations/{id}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
 
-    // --- SESI CHARGING REAL-TIME & AUTO-DEBIT ---
+
+    // CHARGING
     Route::get('/scan', function () {
         return view('driver.charging.scan');
     })->name('driver.scan');
 
-    Route::post('/charging/process-scan', [ChargingSessionController::class, 'processScan'])->name('driver.charging.processScan');
-    Route::post('/charging/start', [ChargingSessionController::class, 'startSession'])->name('driver.charging.start');
-    
-    // Monitoring & Telemetry Real-Time
-    Route::get('/charging/session/{id}', [ChargingSessionController::class, 'monitorSession'])->name('driver.charging.monitor');
-    Route::get('/charging/session/{id}/telemetry', [ChargingSessionController::class, 'getTelemetry'])->name('driver.charging.telemetry');
+    Route::post('/charging/process-scan', [ChargingSessionController::class, 'processScan'])
+        ->name('driver.charging.processScan');
 
-    // Stop Session & Pemotongan Saldo (Di-mapping ke ChargingSessionController)
-    Route::post('/charging/session/{id}/stop', [ChargingSessionController::class, 'stopSession'])->name('driver.charging.stop');
-    Route::post('/reservations/{id}/stop', [ChargingSessionController::class, 'stopSession'])->name('charging.stop');
-    Route::post('/charging/stop/{id}', [ChargingSessionController::class, 'stopSession'])->name('reservations.stop');
+    Route::post('/charging/start', [ChargingSessionController::class, 'startSession'])
+        ->name('driver.charging.start');
 
-    // Struk / Resi Digital Bukti Transaksi
-    Route::get('/charging/receipt/{id_session}', [ChargingSessionController::class, 'showReceipt'])->name('driver.charging.receipt');
+    Route::get('/charging/session/{id}', [ChargingSessionController::class, 'monitorSession'])
+        ->name('driver.charging.monitor');
 
-    // --- ULASAN & FEEDBACK ---
-    Route::post('/spklu/{location_id}/review', [ReviewController::class, 'store'])->name('reviews.store');
+    Route::get('/charging/session/{id}/telemetry', [ChargingSessionController::class, 'getTelemetry'])
+        ->name('driver.charging.telemetry');
 
-    // --- FITUR DRIVER / RIWAYAT / TOP UP ---
-    Route::get('/charging-history', function () {
-        return view('dashboard');
-    })->name('transactions.index');
+    Route::post('/charging/session/{id}/stop', [ChargingSessionController::class, 'stopSession'])
+        ->name('driver.charging.stop');
 
-    // TOP UP SALDO (FR-06)
+    Route::post('/reservations/{id}/stop', [ChargingSessionController::class, 'stopSession'])
+        ->name('charging.stop');
+
+    Route::post('/charging/stop/{id}', [ChargingSessionController::class, 'stopSession'])
+        ->name('reservations.stop');
+
+    Route::get('/charging/receipt/{id_session}', [ChargingSessionController::class, 'showReceipt'])
+        ->name('driver.charging.receipt');
+
+
+    // TRANSACTION HISTORY
+    Route::get('/charging-history', [ChargingSessionController::class, 'history'])
+        ->name('transactions.index');
+
+
+    // REVIEWS
+    Route::get('/spklu/{location_id}/review', [ReviewController::class, 'create'])
+        ->name('reviews.create');
+
+    Route::post('/spklu/{location_id}/review', [ReviewController::class, 'store'])
+        ->name('reviews.store');
+
+    Route::get('/review-success', function () {
+        return view('driver.reviews.success');
+    })->name('reviews.success');
+
+
+    // TOP UP & SUPPORT
     Route::get('/balance/topup', [TopUpController::class, 'index'])->name('topup.index');
     Route::post('/balance/topup', [TopUpController::class, 'store'])->name('topup.store');
 
@@ -93,7 +119,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('dashboard');
     })->name('support.index');
 
-    // --- OPERATOR SPKLU ---
+
+    // OPERATOR
     Route::get('/operator/dashboard', function () {
         return view('dashboard');
     })->name('operator.dashboard');
@@ -102,27 +129,37 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('dashboard');
     })->name('spklu.create');
 
-    // --- FITUR OPERATOR ADMIN (FR-08 S/D FR-11) ---
+
+    // ADMIN
     Route::prefix('admin')->name('admin.')->group(function () {
-        // Pemantauan Real-Time Operasional & Alarm Alert (FR-08 & FR-09)
-        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
-        // Pengaturan Stasiun & Status Operasional Buka/Tutup (FR-10)
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])
+            ->name('dashboard');
+
         Route::resource('stations', StationController::class);
-        Route::patch('/stations/{station}/toggle-status', [StationController::class, 'toggleStatus'])->name('stations.toggle-status');
 
-        // Manajemen Tarif & Overstay Fee (FR-10)
-        Route::get('/tariffs', [TariffController::class, 'index'])->name('tariffs.index');
-        Route::post('/tariffs/{tariff}/update', [TariffController::class, 'update'])->name('tariffs.update');
+        Route::patch('/stations/{station}/toggle-status', [StationController::class, 'toggleStatus'])
+            ->name('stations.toggle-status');
 
-        // Moderasi & Balas Ulasan (FR-11)
-        Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
-        Route::post('/reviews/{review}/reply', [AdminReviewController::class, 'reply'])->name('reviews.reply');
+        Route::get('/tariffs', [TariffController::class, 'index'])
+            ->name('tariffs.index');
+
+        Route::post('/tariffs/{tariff}/update', [TariffController::class, 'update'])
+            ->name('tariffs.update');
+
+        Route::get('/reviews', [AdminReviewController::class, 'index'])
+            ->name('reviews.index');
+
+        Route::post('/reviews/{review}/reply', [AdminReviewController::class, 'reply'])
+            ->name('reviews.reply');
     });
 
-    // --- API ENDPOINT ---
-    Route::get('/api/locations', [LocationController::class, 'index'])->name('api.locations.index');
+
+    // API
+    Route::get('/api/locations', [LocationController::class, 'index'])
+        ->name('api.locations.index');
 
 });
+
 
 require __DIR__.'/auth.php';

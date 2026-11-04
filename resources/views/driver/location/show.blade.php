@@ -7,22 +7,25 @@
 
     <h5 class="mt-4 mb-3">Daftar Charger / Slot Available</h5>
     <div class="row" id="charger-list">
-        @foreach($chargers as$charger)
+        @foreach ($chargers as $charger)
             <div class="col-md-4 mb-3">
                 <div class="card h-100 shadow-sm border-0">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h5 class="card-title mb-0">{{ $charger->name }}</h5>
                             <span class="badge badge-status" id="badge-{{ $charger->id_charger }}">
-                                {{ strtoupper($charger->status) }}
+                                {{ strtoupper($charger->status) }}  
                             </span>
                         </div>
                         <p class="card-text text-muted small">
                             Tipe: {{ $charger->type ?? 'AC Fast Charging' }}
                         </p>
-                        <a href="{{ route('reservations.create', ['location_id' => $location->id_location, 'charger_id' =>$charger->id_charger]) }}" 
-                           class="btn btn-primary w-100 btn-reserve" 
-                           id="btn-reserve-{{ $charger->id_charger }}">
+                        <a href="{{ route('reservations.create', [
+                            'location' => $location->id_location,
+                            'charger' => $charger->id_charger
+                        ]) }}"
+                        class="btn btn-primary w-100 btn-reserve"
+                        id  ="btn-reserve-{{ $charger->id_charger }}">
                             Pesan Slot
                         </a>
                     </div>

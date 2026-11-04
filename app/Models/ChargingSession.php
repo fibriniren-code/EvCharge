@@ -16,33 +16,39 @@ class ChargingSession extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'start_time'      => 'datetime',
-        'waktu_mulai'     => 'datetime',
-        'end_time'        => 'datetime',
-        'waktu_selesai'   => 'datetime',
-        'energy_consumed' => 'decimal:2',
-        'energy_kwh'      => 'decimal:2',
-        'total_cost'      => 'decimal:2',
+        'waktu_mulai' => 'datetime',
+        'waktu_selesai' => 'datetime',
+        'energi_kwh' => 'decimal:2',
+        'estimasi_biaya' => 'decimal:2',
     ];
 
+    // Relasi ke pengguna
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id', 'id');
+        return $this->belongsTo(
+            User::class,
+            'user_id',
+            'id'
+        );
     }
 
+    // Relasi ke charger
     public function charger()
     {
-        // Tentukan foreign key langsung sesuai kolom tabel DB ('id_charger')
-        return $this->belongsTo(Charger::class, 'id_charger', 'id_charger');
+        return $this->belongsTo(
+            Charger::class,
+            'id_charger',
+            'id_charger'
+        );
     }
 
-    public function vehicle()
-    {
-        return $this->belongsTo(Vehicle::class, 'id_vehicle', 'id_vehicle');
-    }
-
+    // Relasi ke reservasi
     public function reservation()
     {
-        return $this->belongsTo(Reservation::class, 'id_reservation', 'id_reservation');
+        return $this->belongsTo(
+            Reservation::class,
+            'id_reservation',
+            'id_reservation'
+        );
     }
 }

@@ -1,7 +1,8 @@
+
 <nav style="background-color: #0F172A; border-bottom: 1px solid #1E293B; color: #FFFFFF; position: sticky; top: 0; z-index: 50;">
     <div style="max-width: 80rem; margin: 0 auto; padding: 0 1.5rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; height: 4rem;">
-            
+
             <!-- Logo & Navigation -->
             <div style="display: flex; align-items: center; gap: 2rem;">
                 <a href="{{ route('dashboard') }}" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
@@ -16,16 +17,25 @@
 
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     @if(Auth::user()->role === 'admin')
-                        <!-- MENU KHUSUS ADMIN (FR-08 s/d FR-11) -->
+                        <!-- MENU KHUSUS ADMIN -->
                         <a href="{{ route('admin.dashboard') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('admin.dashboard') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('admin.dashboard') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Dashboard Admin</a>
+
                         <a href="{{ route('admin.stations.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('admin.stations.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('admin.stations.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Kelola Stasiun</a>
+
                         <a href="{{ route('admin.tariffs.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('admin.tariffs.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('admin.tariffs.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Kelola Tarif</a>
+
                         <a href="{{ route('admin.reviews.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('admin.reviews.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('admin.reviews.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Moderasi Ulasan</a>
                     @else
                         <!-- MENU KHUSUS DRIVER -->
                         <a href="{{ route('spklu.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('spklu.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('spklu.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Cari SPKLU</a>
+
                         <a href="{{ route('cars.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('cars.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('cars.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Mobil Saya</a>
+
                         <a href="{{ route('reservations.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('reservations.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('reservations.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Reservasi Saya</a>
+
+                        <!-- MENU RIWAYAT TRANSAKSI -->
+                        <a href="{{ route('transactions.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('transactions.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('transactions.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Riwayat Transaksi</a>
+
                         <a href="{{ route('driver.scan') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('driver.scan') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('driver.scan') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Scan QR</a>
 
                         <!-- TOMBOL PANTAU CHARGING (Hanya tampil jika Driver sedang charging) -->
@@ -50,9 +60,9 @@
 
             <!-- Right Area: Saldo & Profile -->
             <div style="display: flex; align-items: center; gap: 1rem;">
-                
+
                 @if(Auth::user()->role !== 'admin')
-                    <!-- Widget Saldo (Hanya Tampil untuk Driver) -->
+                    <!-- Widget Saldo -->
                     <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.35rem 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
                         <div style="text-align: right; line-height: 1.1;">
                             <span style="display: block; font-size: 0.6rem; color: #94A3B8; font-weight: 600; text-transform: uppercase;">Saldo</span>

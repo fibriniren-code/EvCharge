@@ -9,6 +9,8 @@ class Charger extends Model
 {
     use HasFactory;
 
+    protected $table = 'chargers';
+
     protected $primaryKey = 'id_charger';
 
     protected $fillable = [
@@ -24,23 +26,37 @@ class Charger extends Model
         'price_per_kwh' => 'decimal:2',
     ];
 
+    // Relasi ke lokasi SPKLU
     public function location()
     {
-        return $this->belongsTo(Location::class, 'location_id', 'id_location');
+        return $this->belongsTo(
+            Location::class,
+            'location_id',
+            'id_location'
+        );
     }
 
+    // Relasi ke reservasi
     public function reservations()
     {
-        // Sesuaikan foreign key ke 'id_charger'
-        return $this->hasMany(Reservation::class, 'charger_id', 'id_charger');
+        return $this->hasMany(
+            Reservation::class,
+            'charger_id',
+            'id_charger'
+        );
     }
 
+    // Relasi ke sesi charging
     public function chargingSessions()
     {
-        // PERBAIKAN: Gunakan 'id_charger' sebagai foreign key di tabel charging_sessions
-        return $this->hasMany(ChargingSession::class, 'id_charger', 'id_charger');
+        return $this->hasMany(
+            ChargingSession::class,
+            'id_charger',
+            'id_charger'
+        );
     }
 
+    // Memeriksa ketersediaan charger
     public function isAvailable(): bool
     {
         if ($this->status !== 'available') {
@@ -48,11 +64,11 @@ class Charger extends Model
         }
 
         $hasActiveSession = $this->chargingSessions()
-            ->where('status', 'active')
+            ->where('status', 'running')
             ->exists();
 
         $hasActiveReservation = $this->reservations()
-            ->whereIn('status', ['pending', 'active'])
+            ->whereIn('status', ['pending', 'confirmed'])
             ->where('expires_at', '>', now())
             ->exists();
 
