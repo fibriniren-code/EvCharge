@@ -6,6 +6,13 @@ use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\Driver\ChargingSessionController;
 use App\Http\Controllers\ReviewController;
+
+// --- IMPORT CONTROLLER ADMIN ---
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\StationController;
+use App\Http\Controllers\Admin\TariffController;
+use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
+
 use Illuminate\Support\Facades\Route;
 
 // --- PUBLIC ROUTES ---
@@ -16,8 +23,12 @@ Route::get('/', function () {
 // --- AUTHENTICATED ROUTES ---
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    // Dashboard Utama
+    // Dashboard Utama (Auto Redirect berdasarkan Role)
     Route::get('/dashboard', function () {
+        if (auth()->check() && auth()->user()->role === 'admin') {
+            return redirect()->route('admin.dashboard');
+        }
+
         return view('dashboard');
     })->name('dashboard');
 
@@ -91,6 +102,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/operator/stations/create', function () {
         return view('dashboard');
     })->name('spklu.create');
+
+    // --- FITUR OPERATOR ADMIN (FR-08 S/D FR-11) ---
+    Route::prefix('admin')->name('admin.')->group(function () {
+        // Pemantauan Real-Time Operasional & Alarm Alert (FR-08 & FR-09)
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+        // Pengaturan Stasiun & Status Operasional Buka/Tutup (FR-10)
+        Route::resource('stations', StationController::class);
+        Route::patch('/stations/{station}/toggle-status', [StationController::class, 'toggleStatus'])->name('stations.toggle-status');
+
+        // Manajemen Tarif & Overstay Fee (FR-10)
+        Route::get('/tariffs', [TariffController::class, 'index'])->name('tariffs.index');
+        Route::post('/tariffs/{tariff}/update', [TariffController::class, 'update'])->name('tariffs.update');
+
+        // Moderasi & Balas Ulasan (FR-11)
+        Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
+        Route::post('/reviews/{review}/reply', [AdminReviewController::class, 'reply'])->name('reviews.reply');
+    });
 
     // --- API ENDPOINT ---
     Route::get('/api/locations', [LocationController::class, 'index'])->name('api.locations.index');
