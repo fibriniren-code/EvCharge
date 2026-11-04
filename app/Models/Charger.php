@@ -31,13 +31,14 @@ class Charger extends Model
 
     public function reservations()
     {
+        // Sesuaikan foreign key ke 'id_charger'
         return $this->hasMany(Reservation::class, 'charger_id', 'id_charger');
     }
 
     public function chargingSessions()
     {
-        // Sesuaikan 'charger_id' dengan nama kolom di tabel charging_sessions
-        return $this->hasMany(ChargingSession::class, 'charger_id', 'id_charger');
+        // PERBAIKAN: Gunakan 'id_charger' sebagai foreign key di tabel charging_sessions
+        return $this->hasMany(ChargingSession::class, 'id_charger', 'id_charger');
     }
 
     public function isAvailable(): bool

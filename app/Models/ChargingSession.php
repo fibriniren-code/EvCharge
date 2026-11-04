@@ -27,28 +27,22 @@ class ChargingSession extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
     public function charger()
     {
-        // Mengecek foreign key 'id_charger', atau fallback ke 'charger_id' jika null
-        $foreignKey = $this->id_charger ? 'id_charger' : 'charger_id';
-        
-        return $this->belongsTo(Charger::class, $foreignKey, 'id_charger');
+        // Tentukan foreign key langsung sesuai kolom tabel DB ('id_charger')
+        return $this->belongsTo(Charger::class, 'id_charger', 'id_charger');
     }
 
     public function vehicle()
     {
-        $foreignKey = $this->id_vehicle ? 'id_vehicle' : 'vehicle_id';
-
-        return $this->belongsTo(Vehicle::class, $foreignKey, 'id_vehicle');
+        return $this->belongsTo(Vehicle::class, 'id_vehicle', 'id_vehicle');
     }
 
     public function reservation()
     {
-        $foreignKey = $this->id_reservation ? 'id_reservation' : 'reservation_id';
-
-        return $this->belongsTo(Reservation::class, $foreignKey, 'id_reservation');
+        return $this->belongsTo(Reservation::class, 'id_reservation', 'id_reservation');
     }
 }
