@@ -6,6 +6,7 @@ use App\Models\Charger;
 use App\Models\ChargingSession;
 use App\Models\Location;
 use App\Models\Reservation;
+use App\Models\User;
 use App\Models\Vehicle;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class ReservationController extends Controller
     {
         $locationModel = Location::findOrFail($location);
         $chargerModel  = Charger::where('location_id', $locationModel->id_location)
-                                ->findOrFail($charger);
+                                 ->findOrFail($charger);
 
         $vehicles = Vehicle::where('user_id', auth()->id())->get();
 
@@ -85,7 +86,8 @@ class ReservationController extends Controller
             return back()->withErrors(['start_time' => 'Slot waktu yang dipilih sudah dipesan pengguna lain.'])->withInput();
         }
 
-        $expiresAt = Carbon::now()->addMinutes(15);
+        // Holding Slot diset MAX 10 MENIT
+        $expiresAt = Carbon::now()->addMinutes(10);
 
         $reservation = DB::transaction(function () use ($validated, $charger, $startTime, $endTime, $expiresAt) {
             $res = Reservation::create([
@@ -103,8 +105,9 @@ class ReservationController extends Controller
             return $res;
         });
 
+        // Redirect ke detail reservasi agar driver dapat melihat ID Booking / Catatan terlebih dahulu
         return redirect()->route('reservations.show', $reservation->id_reservation)
-            ->with('success', 'Reservasi berhasil dibuat. Silakan selesaikan pembayaran sebelum batas waktu berakhir.');
+            ->with('success', 'Reservasi berhasil dibuat. Slot Anda ditahan selama 10 menit.');
     }
 
     private function findUserReservation($id)
@@ -199,39 +202,106 @@ class ReservationController extends Controller
         return response()->json($chargers);
     }
 
+    /**
+     * Stop Charging: Hitung Tagihan, Cek Saldo & Auto-Debit Pemotongan Saldo
+     */
     public function stopCharging($id)
     {
         $reservation = $this->findUserReservation($id);
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
 
-        $targetId = DB::transaction(function () use ($reservation) {
-            // 1. Update status reservasi menjadi completed & bebaskan charger
+        // 1. Kalkulasi Durasi & Tagihan Biaya Berbasis Detik/Menit Minimal
+        $startTime = Carbon::parse($reservation->waktu_mulai);
+        $endTime   = now();
+        $secondsElapsed = max(5, $startTime->diffInSeconds($endTime));
+        $durationMinutes = max(1, ceil($secondsElapsed / 60));
+
+        $powerKw = $reservation->charger->power_kw ?? 22;
+        $kwhDelivered = round(($powerKw / 3600) * $secondsElapsed, 2);
+        if ($kwhDelivered <= 0) {
+            $kwhDelivered = 0.05;
+        }
+
+        $totalCost = round($kwhDelivered * 2466);
+
+        // 2. PENGECEKAN KECUKUPAN SALDO
+        if ($user->balance < $totalCost) {
+            $kekurangan = $totalCost - $user->balance;
+            return redirect()->route('topup.index')
+                ->with('error', 'Saldo Anda kurang (Rp ' . number_format($kekurangan, 0, ',', '.') . ') untuk membayar pengisian ini. Silakan Top Up terlebih dahulu.');
+        }
+
+        // 3. JIKA SALDO CUKUP: Eksekusi Auto-Debit dan Update Status
+        $targetId = DB::transaction(function () use ($reservation, $user, $totalCost, $endTime, $durationMinutes, $kwhDelivered) {
+            // Potong Saldo Akun User
+            DB::table('users')->where('id', $user->id)->decrement('balance', $totalCost);
+
+            // Update status reservasi & charger
             $reservation->update([
                 'status'     => 'completed',
-                'stopped_at' => now(),
+                'stopped_at' => $endTime,
             ]);
 
             if ($reservation->charger) {
                 $reservation->charger->update(['status' => 'available']);
             }
 
-            // 2. Coba buat record ChargingSession jika memungkinkan
+            // Buat Record Sesi Pengisian (Dukungan penuh nama kolom alternatif)
             try {
+                $columns = Schema::getColumnListing('charging_sessions');
                 $sessionData = [];
-                
-                // Masukkan data kolom secara kondisional hanya jika kolomnya ada
-                if (Schema::hasColumn('charging_sessions', 'user_id')) {
+
+                if (in_array('user_id', $columns)) {
                     $sessionData['user_id'] = $reservation->user_id;
                 }
-                if (Schema::hasColumn('charging_sessions', 'charger_id')) {
+                
+                if (in_array('charger_id', $columns)) {
                     $sessionData['charger_id'] = $reservation->charger_id;
+                } elseif (in_array('id_charger', $columns)) {
+                    $sessionData['id_charger'] = $reservation->charger_id;
                 }
-                if (Schema::hasColumn('charging_sessions', 'vehicle_id')) {
+
+                if (in_array('vehicle_id', $columns)) {
                     $sessionData['vehicle_id'] = $reservation->vehicle_id;
+                } elseif (in_array('id_vehicle', $columns)) {
+                    $sessionData['id_vehicle'] = $reservation->vehicle_id;
                 }
-                if (Schema::hasColumn('charging_sessions', 'reservation_id')) {
+
+                if (in_array('reservation_id', $columns)) {
                     $sessionData['reservation_id'] = $reservation->id_reservation;
+                } elseif (in_array('id_reservation', $columns)) {
+                    $sessionData['id_reservation'] = $reservation->id_reservation;
                 }
-                if (Schema::hasColumn('charging_sessions', 'status')) {
+
+                if (in_array('start_time', $columns)) {
+                    $sessionData['start_time'] = $reservation->waktu_mulai;
+                } elseif (in_array('waktu_mulai', $columns)) {
+                    $sessionData['waktu_mulai'] = $reservation->waktu_mulai;
+                }
+
+                if (in_array('end_time', $columns)) {
+                    $sessionData['end_time'] = $endTime;
+                } elseif (in_array('waktu_selesai', $columns)) {
+                    $sessionData['waktu_selesai'] = $endTime;
+                }
+
+                if (in_array('energy_kwh', $columns)) {
+                    $sessionData['energy_kwh'] = $kwhDelivered;
+                } elseif (in_array('energy_consumed', $columns)) {
+                    $sessionData['energy_consumed'] = $kwhDelivered;
+                }
+
+                if (in_array('duration_minutes', $columns)) {
+                    $sessionData['duration_minutes'] = $durationMinutes;
+                }
+
+                if (in_array('total_cost', $columns)) {
+                    $sessionData['total_cost'] = $totalCost;
+                }
+
+                // Cek Enum Status Aset
+                if (in_array('status', $columns)) {
                     $sessionData['status'] = 'completed';
                 }
 
@@ -240,15 +310,17 @@ class ReservationController extends Controller
                     return $session->getKey();
                 }
             } catch (\Exception $e) {
-                // Abaikan error pembuatan session agar alur tidak terhenti
+                // Abaikan jika penulisan log charging_sessions gagal
             }
 
-            // Fallback ke ID reservasi
             return $reservation->id_reservation;
         });
 
-        // 3. Alihkan langsung ke halaman pembayaran/struk
+        // 4. Sinkronkan Session Auth User
+        auth()->setUser(User::find($user->id));
+
+        // 5. Direct Langsung ke Struk Digital Resmi
         return redirect()->route('driver.charging.receipt', $targetId)
-            ->with('success', 'Sesi pengisian daya berhasil dihentikan. Silakan selesaikan pembayaran.');
+            ->with('success', 'Sesi pengisian daya selesai dan pembayaran berhasil dipotong dari saldo.');
     }
 }
