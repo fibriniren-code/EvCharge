@@ -13,10 +13,6 @@ class ChargingSession extends Model
 
     protected $primaryKey = 'id_session';
 
-    /**
-     * Menggunakan $guarded = [] agar semua kolom (waktu_mulai, start_time, id_vehicle, vehicle_id, dll)
-     * diizinkan masuk ke query INSERT tanpa terbuang oleh fitur mass assignment protection.
-     */
     protected $guarded = [];
 
     protected $casts = [
@@ -36,25 +32,23 @@ class ChargingSession extends Model
 
     public function charger()
     {
-        return $this->belongsTo(Charger::class, 'id_charger', 'id_charger')
-            ->withDefault(function ($charger, $session) {
-                return Charger::find($session->charger_id ?? $session->id_charger);
-            });
+        // Mengecek foreign key 'id_charger', atau fallback ke 'charger_id' jika null
+        $foreignKey = $this->id_charger ? 'id_charger' : 'charger_id';
+        
+        return $this->belongsTo(Charger::class, $foreignKey, 'id_charger');
     }
 
     public function vehicle()
     {
-        return $this->belongsTo(Vehicle::class, 'vehicle_id', 'id_vehicle')
-            ->withDefault(function ($vehicle, $session) {
-                return Vehicle::find($session->id_vehicle ?? $session->vehicle_id);
-            });
+        $foreignKey = $this->id_vehicle ? 'id_vehicle' : 'vehicle_id';
+
+        return $this->belongsTo(Vehicle::class, $foreignKey, 'id_vehicle');
     }
 
     public function reservation()
     {
-        return $this->belongsTo(Reservation::class, 'reservation_id', 'id_reservation')
-            ->withDefault(function ($res, $session) {
-                return Reservation::find($session->id_reservation ?? $session->reservation_id);
-            });
+        $foreignKey = $this->id_reservation ? 'id_reservation' : 'reservation_id';
+
+        return $this->belongsTo(Reservation::class, $foreignKey, 'id_reservation');
     }
 }

@@ -34,10 +34,10 @@ class Charger extends Model
         return $this->hasMany(Reservation::class, 'charger_id', 'id_charger');
     }
 
-    // PERBAIKAN DI SINI: tambahkan 'id_charger' sebagai foreign key
     public function chargingSessions()
     {
-        return $this->hasMany(ChargingSession::class, 'id_charger', 'id_charger');
+        // Sesuaikan 'charger_id' dengan nama kolom di tabel charging_sessions
+        return $this->hasMany(ChargingSession::class, 'charger_id', 'id_charger');
     }
 
     public function isAvailable(): bool
