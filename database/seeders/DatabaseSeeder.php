@@ -2,14 +2,31 @@
 
 namespace Database\Seeders;
 
-use App\Models\Location;
 use App\Models\Charger;
+use App\Models\Location;
+use App\Models\Tariff;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // --- AKUN UJI (password semua akun: "password") ---
+        User::unguarded(function () {
+            foreach ([
+                ['name' => 'Admin EVCharge',    'email' => 'admin@evcharge.test',    'role' => 'admin'],
+                ['name' => 'Operator EVCharge', 'email' => 'operator@evcharge.test', 'role' => 'operator'],
+                ['name' => 'Driver EVCharge',   'email' => 'driver@evcharge.test',   'role' => 'driver', 'balance' => 500000],
+            ] as $akun) {
+                User::create($akun + [
+                    'password'          => 'password',
+                    'email_verified_at' => now(),
+                    'status'            => 'active',
+                ]);
+            }
+        });
+
         // --- YOGYAKARTA ---
         $loc1 = Location::create([
             'nama_lokasi'     => 'SPKLU Malioboro',
@@ -70,11 +87,23 @@ class DatabaseSeeder extends Seeder
 
         // --- CHARGERS ---
         if (class_exists(Charger::class)) {
-            Charger::create(['location_id' => $loc1->id_location, 'type' => 'CCS2 (Fast Charging)', 'power_kw' => 50, 'status' => 'available']);
-            Charger::create(['location_id' => $loc2->id_location, 'type' => 'Type 2 (AC)', 'power_kw' => 22, 'status' => 'available']);
-            Charger::create(['location_id' => $loc3->id_location, 'type' => 'CCS2 Ultra Fast Charging', 'power_kw' => 100, 'status' => 'available']);
-            Charger::create(['location_id' => $loc4->id_location, 'type' => 'Type 2 (AC)', 'power_kw' => 22, 'status' => 'available']);
-            Charger::create(['location_id' => $loc5->id_location, 'type' => 'CCS2 + CHAdeMO', 'power_kw' => 60, 'status' => 'available']);
+            Charger::create(['location_id' => $loc1->id_location, 'charger_type' => 'CCS2 (Fast Charging)', 'power_kw' => 50, 'status' => 'available']);
+            Charger::create(['location_id' => $loc2->id_location, 'charger_type' => 'Type 2 (AC)', 'power_kw' => 22, 'status' => 'available']);
+            Charger::create(['location_id' => $loc3->id_location, 'charger_type' => 'CCS2 Ultra Fast Charging', 'power_kw' => 100, 'status' => 'available']);
+            Charger::create(['location_id' => $loc4->id_location, 'charger_type' => 'Type 2 (AC)', 'power_kw' => 22, 'status' => 'available']);
+            Charger::create(['location_id' => $loc5->id_location, 'charger_type' => 'CCS2 + CHAdeMO', 'power_kw' => 60, 'status' => 'available']);
+        }
+
+        // --- TARIF per lokasi (nilai awal; ubah lewat halaman Kelola Tarif admin) ---
+        foreach (Location::all() as $lokasi) {
+            Tariff::create([
+                'id_location'            => $lokasi->id_location,
+                'harga_per_kwh'          => 2466,
+                'biaya_layanan'          => 0,
+                'biaya_minimum'          => 0,
+                'overstay_fee_per_menit' => 500,
+                'periode_berlaku'        => now(),
+            ]);
         }
     }
 }

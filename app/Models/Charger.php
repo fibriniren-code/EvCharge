@@ -17,13 +17,11 @@ class Charger extends Model
         'location_id',
         'charger_type',
         'power_kw',
-        'price_per_kwh',
         'status',
     ];
 
     protected $casts = [
         'power_kw' => 'decimal:2',
-        'price_per_kwh' => 'decimal:2',
     ];
 
     // Relasi ke lokasi SPKLU

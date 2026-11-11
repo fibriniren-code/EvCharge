@@ -23,8 +23,27 @@ class Location extends Model
         'status',
     ];
 
+    protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
+    ];
+
     public function chargers()
     {
         return $this->hasMany(Charger::class, 'location_id', 'id_location');
+    }
+
+    public function tariffs()
+    {
+        return $this->hasMany(Tariff::class, 'id_location', 'id_location');
+    }
+
+    // Tarif yang sedang berlaku (periode_berlaku terbaru yang sudah lewat)
+    public function currentTariff(): ?Tariff
+    {
+        return $this->tariffs()
+            ->where('periode_berlaku', '<=', now())
+            ->latest('periode_berlaku')
+            ->first();
     }
 }

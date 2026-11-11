@@ -8,26 +8,27 @@ use Illuminate\Http\Request;
 
 class TariffController extends Controller
 {
+    // Menampilkan tarif per stasiun (FR-15)
     public function index()
     {
-        $tariffs = Tariff::all();
+        $tariffs = Tariff::with('location')
+            ->orderBy('id_location')
+            ->get();
+
         return view('admin.tariffs.index', compact('tariffs'));
     }
 
+    // Memperbarui tarif per kWh, biaya layanan, dan overstay fee
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'price_per_kwh'        => 'required|numeric|min:0',
-            'service_fee'          => 'required|numeric|min:0',
-            'overstay_fee_per_min' => 'required|numeric|min:0',
+        $validated = $request->validate([
+            'harga_per_kwh'          => 'required|numeric|min:0',
+            'biaya_layanan'          => 'required|numeric|min:0',
+            'overstay_fee_per_menit' => 'required|numeric|min:0',
         ]);
 
         $tariff = Tariff::findOrFail($id);
-        $tariff->update([
-            'price_per_kwh'        => $request->price_per_kwh,
-            'service_fee'          => $request->service_fee,
-            'overstay_fee_per_min' => $request->overstay_fee_per_min,
-        ]);
+        $tariff->update($validated);
 
         return back()->with('success', 'Tarif operasional berhasil diperbarui.');
     }

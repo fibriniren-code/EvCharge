@@ -95,18 +95,6 @@
                 <x-input-error :messages="$errors->get('phone_number')" class="mt-1" />
             </div>
 
-            <!-- Tipe Pengguna (Role) -->
-            <div>
-                <label for="role" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Peran Akun</label>
-                <select id="role" 
-                        name="role" 
-                        class="w-full px-4 py-2.5 rounded-xl ev-input text-sm">
-                    <option value="driver" selected>Pengemudi EV (Driver)</option>
-                    <option value="operator">Operator Charging Station</option>
-                </select>
-                <x-input-error :messages="$errors->get('role')" class="mt-1" />
-            </div>
-
             <!-- Kata Sandi -->
             <div>
                 <label for="password" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Kata Sandi</label>

@@ -10,7 +10,7 @@
                     <div>
                         <span style="font-size: 1.125rem; font-weight: 800; color: #FFFFFF; letter-spacing: 0.025em;">EVCharge<span style="color: #60A5FA;">Hub</span></span>
                         <span style="display: block; font-size: 0.6rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-top: -2px;">
-                            {{ Auth::user()->role === 'admin' ? 'ADMIN OPERATOR' : 'SPKLU PLATFORM' }}
+                            {{ Auth::user()->role === 'admin' ? 'ADMIN' : (Auth::user()->role === 'operator' ? 'OPERATOR' : 'SPKLU PLATFORM') }}
                         </span>
                     </div>
                 </a>
@@ -25,6 +25,9 @@
                         <a href="{{ route('admin.tariffs.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('admin.tariffs.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('admin.tariffs.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Kelola Tarif</a>
 
                         <a href="{{ route('admin.reviews.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('admin.reviews.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('admin.reviews.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Moderasi Ulasan</a>
+                    @elseif(Auth::user()->role === 'operator')
+                        <!-- MENU KHUSUS OPERATOR -->
+                        <a href="{{ route('operator.dashboard') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('operator.dashboard') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('operator.dashboard') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Dashboard Operator</a>
                     @else
                         <!-- MENU KHUSUS DRIVER -->
                         <a href="{{ route('spklu.index') }}" style="padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: {{ request()->routeIs('spklu.*') ? '#60A5FA' : '#CBD5E1' }}; background-color: {{ request()->routeIs('spklu.*') ? 'rgba(37,99,235,0.2)' : 'transparent' }};">Cari SPKLU</a>
@@ -61,7 +64,7 @@
             <!-- Right Area: Saldo & Profile -->
             <div style="display: flex; align-items: center; gap: 1rem;">
 
-                @if(Auth::user()->role !== 'admin')
+                @if(Auth::user()->role === 'driver')
                     <!-- Widget Saldo -->
                     <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.35rem 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
                         <div style="text-align: right; line-height: 1.1;">
