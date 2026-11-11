@@ -163,11 +163,11 @@
                 if (loc.chargers && loc.chargers.length > 0) {
                     loc.chargers.forEach(charger => {
                         // Menggunakan loc.id_location
-                        let reserveUrl = `/location/${loc.id_location}/charger/${charger.id}/reserve`;
+                        let reserveUrl = `/location/${loc.id_location}/charger/${charger.id_charger}/reserve`;
                         chargersHtml += `
                             <div class="flex items-center justify-between p-2 mb-2 bg-gray-50 rounded border">
                                 <div>
-                                    <p class="text-xs font-bold text-gray-800">${charger.type}</p>
+                                    <p class="text-xs font-bold text-gray-800">${charger.charger_type}</p>
                                     <p class="text-[11px] text-gray-500">${charger.power_kw} kW</p>
                                 </div>
                                 <a href="${reserveUrl}" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition">

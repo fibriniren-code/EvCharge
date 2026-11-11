@@ -10,10 +10,13 @@ return new class extends Migration
     {
         Schema::create('chargers', function (Blueprint $table) {
             $table->id('id_charger');
-            $table->foreignId('location_id')->constrained('locations', 'id_location')->onDelete('cascade');
-            $table->string('type');
-            $table->integer('power_kw');
-            $table->string('status')->default('available');
+            $table->foreignId('location_id')->constrained('locations', 'id_location')->cascadeOnDelete();
+            $table->string('charger_type');
+            $table->decimal('power_kw', 8, 2);
+            // available = siap dipakai, reserved = sedang ditahan reservasi,
+            // occupied = sedang charging, faulted = rusak, unavailable = dimatikan
+            $table->enum('status', ['available', 'reserved', 'occupied', 'faulted', 'unavailable'])
+                ->default('available');
             $table->timestamps();
         });
     }

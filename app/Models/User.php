@@ -32,6 +32,12 @@ class User extends Authenticatable
         ];
     }
 
+    /* Memeriksa apakah user memiliki salah satu peran yang diberikan. */
+    public function hasRole(string ...$roles): bool
+    {
+        return in_array($this->role, $roles, true);
+    }
+
     /* Relasi: Satu user dapat memiliki banyak kendaraan EV (FR-01). */
     public function vehicles(): HasMany
     {

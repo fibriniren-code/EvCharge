@@ -6,30 +6,26 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('reviews', function (Blueprint $table) {
             $table->id('id_review');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('id_location')->constrained('locations', 'id_location')->onDelete('cascade');
-            // Rating & Ulasan Alat/Mesin
-            $table->unsignedTinyInteger('rating_alat'); // 1-5[cite: 3]
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('id_location')->constrained('locations', 'id_location')->cascadeOnDelete();
+            $table->foreignId('id_session')->nullable()->unique()
+                ->constrained('charging_sessions', 'id_session')->nullOnDelete();
+            // Rating & ulasan alat/mesin (1-5)
+            $table->unsignedTinyInteger('rating_alat');
             $table->text('ulasan_alat')->nullable();
-            // Rating & Ulasan Tempat/Fasilitas Penunjang
-            $table->unsignedTinyInteger('rating_tempat'); // 1-5[cite: 3]
+            // Rating & ulasan tempat/fasilitas penunjang (1-5)
+            $table->unsignedTinyInteger('rating_tempat');
             $table->text('ulasan_tempat')->nullable();
-            $table->string('foto_lokasi')->nullable(); // Upload foto fasilitas[cite: 3]
-            $table->text('balasan_operator')->nullable(); // Fitur merespons keluhan[cite: 3]
+            $table->string('foto_lokasi')->nullable();
+            $table->text('balasan_operator')->nullable();
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('reviews');

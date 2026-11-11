@@ -6,15 +6,15 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id('id_payment');
-            $table->foreignId('id_session')->constrained('charging_sessions', 'id_session')->onDelete('cascade');
-            $table->string('metode'); // E-Wallet, VA, Kartu Kredit, QRIS
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            // Nullable: top-up saldo tidak terikat ke sesi charging tertentu.
+            $table->foreignId('id_session')->nullable()
+                ->constrained('charging_sessions', 'id_session')->nullOnDelete();
+            $table->string('metode'); // Saldo, E-Wallet, VA, Kartu Kredit, QRIS
             $table->decimal('jumlah', 12, 2);
             $table->enum('status', ['pending', 'success', 'failed', 'refunded'])->default('pending');
             $table->dateTime('waktu_pembayaran')->nullable();
@@ -23,9 +23,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('payments');
