@@ -7,6 +7,7 @@ use App\Models\Location;
 use App\Models\Tariff;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class RoleAccessTest extends TestCase
@@ -163,6 +164,26 @@ class RoleAccessTest extends TestCase
         $this->actingAs($this->userWithRole('driver'))
             ->getJson(route('api.locations.nearby'))
             ->assertStatus(422);
+    }
+
+    public function test_every_authenticated_route_is_protected_by_a_role(): void
+    {
+        // Route di area login yang memang boleh dipakai semua peran.
+        $sharedUris = [
+            'dashboard', 'profile', 'logout', 'password', 'confirm-password',
+            'verify-email', 'verify-email/{id}/{hash}', 'email/verification-notification',
+        ];
+
+        $unprotected = collect(Route::getRoutes()->getRoutes())
+            ->filter(fn ($route) => in_array('auth', $route->gatherMiddleware(), true))
+            ->reject(fn ($route) => in_array($route->uri(), $sharedUris, true))
+            ->reject(fn ($route) => collect($route->gatherMiddleware())
+                ->contains(fn ($m) => is_string($m) && str_starts_with($m, 'role:')))
+            ->map(fn ($route) => implode('|', $route->methods()) . ' ' . $route->uri())
+            ->values()
+            ->all();
+
+        $this->assertSame([], $unprotected, 'Route berikut tidak dilindungi role middleware.');
     }
 
     public function test_register_always_creates_a_driver(): void
