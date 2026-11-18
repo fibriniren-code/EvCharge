@@ -1,277 +1,153 @@
-<x-app-layout>
-    <div style="max-width: 48rem; margin: 0 auto; padding: 1.5rem 1.5rem 3rem 1.5rem;">
-        
-        <!-- Breadcrumb Navigasi -->
-        <div style="margin-bottom: 0.5rem; font-size: 0.8rem; color: #60A5FA; font-weight: 600;">
-            <a href="{{ route('reservations.index') }}" style="color: #60A5FA; text-decoration: none;">Reservasi Saya</a> 
-            <span style="color: #64748B; margin: 0 0.3rem;">/</span> 
-            <span style="color: #94A3B8;">Catatan & QR Aktivasi</span>
-        </div>
+<x-app-layout :title="'Reservasi #' . $reservation->id_reservation">
+    @php
+        $r = $reservation;
+        $status = $r->status;
+        $location = $r->charger?->location;
+        $session = $r->chargingSession;
+        $holding = in_array($status, ['pending', 'confirmed'], true);
+        $failed = in_array($status, ['cancelled', 'expired'], true);
+        $stepIndex = ['pending' => 0, 'confirmed' => 1, 'active' => 2, 'completed' => 3][$status] ?? -1;
+        $steps = ['Dibuat', 'Dikonfirmasi', 'Charging', 'Selesai'];
+        $balance = (float) auth()->user()->balance;
+        $remaining = $holding && $r->expires_at ? max(0, (int) now()->diffInSeconds($r->expires_at, false)) : 0;
+        $total = $status === 'pending' ? \App\Http\Controllers\ReservationController::HOLD_HOURS * 3600 : max(1, (int) $r->created_at->diffInSeconds($r->waktu_selesai, true));
+    @endphp
 
-        <!-- Header Halaman -->
-        <div style="margin-bottom: 1.5rem; text-align: center;">
-            <h1 style="font-size: 1.75rem; font-weight: 800; color: #FFFFFF; margin: 0;">
-                @if($reservation->status === 'pending')
-                    Konfirmasi Reservasi Slot
-                @else
-                    Catatan Reservasi & QR Aktivasi
-                @endif
-            </h1>
-            <p style="font-size: 0.875rem; color: #94A3B8; margin-top: 0.25rem; margin-bottom: 0;">
-                @if($reservation->status === 'pending')
-                    Periksa kembali detail reservasi Anda sebelum melakukan aktivasi mesin.
-                @else
-                    Scan QR Code ini pada mesin SPKLU atau gunakan ID Booking untuk mulai charging.
-                @endif
-            </p>
-        </div>
+    <x-page-header :back="route('reservations.index')" backLabel="Semua reservasi" eyebrow="Reservasi" :title="'Reservasi #' . $r->id_reservation">
+        <x-slot name="actions"><x-status-badge :status="$status" type="reservation" class="!px-3.5 !py-2 !text-xs" /></x-slot>
+    </x-page-header>
 
-        <!-- Card Main Container -->
-        <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 1.25rem; padding: 1.75rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);">
-            
-            <!-- Alert Notice Success / Error -->
-            @if(session('success'))
-                <div style="background-color: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #6EE7B7; padding: 0.85rem 1rem; border-radius: 0.75rem; margin-bottom: 1.25rem; font-size: 0.85rem; font-weight: 600; text-align: center;">
-                    ✓ {{ session('success') }}
-                </div>
-            @endif
-
-            @if(session('error'))
-                <div style="background-color: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #FCA5A5; padding: 0.85rem 1rem; border-radius: 0.75rem; margin-bottom: 1.25rem; font-size: 0.85rem; font-weight: 600; text-align: center;">
-                    ⚠️ {{ session('error') }}
-                </div>
-            @endif
-
-            <!-- BADGE ID BOOKING / RESERVASI MANUAL -->
-            <div style="background-color: #0F172A; border: 1px solid #3B82F6; padding: 0.85rem 1.25rem; border-radius: 0.75rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
-                <div>
-                    <span style="display: block; font-size: 0.65rem; color: #60A5FA; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
-                        ID BOOKING / RESERVASI MANUAL
-                    </span>
-                    <strong style="color: #FFFFFF; font-size: 1.25rem; font-family: monospace;">
-                        #{{ $reservation->id_reservation }}
-                    </strong>
-                </div>
-                
-                <span style="background-color: #1E293B; border: 1px solid {{ in_array($reservation->status, ['cancelled', 'expired']) ? '#EF4444' : '#3B82F6' }}; color: {{ in_array($reservation->status, ['cancelled', 'expired']) ? '#F87171' : '#60A5FA' }}; font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 0.5rem; text-transform: uppercase;">
-                    {{ $reservation->status }}
-                </span>
-            </div>
-
-            <!-- Detail Informasi Reservasi -->
-            <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
-                <!-- Lokasi SPKLU -->
-                <div style="background-color: #0F172A; border: 1px solid #2A3859; padding: 0.85rem 1.25rem; border-radius: 0.75rem;">
-                    <span style="display: block; font-size: 0.65rem; color: #94A3B8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">
-                        LOKASI SPKLU
-                    </span>
-                    <strong style="color: #FFFFFF; font-size: 1rem;">
-                        {{ $reservation->charger->location->name ?? $reservation->charger->location->nama_lokasi ?? 'Lokasi SPKLU' }}
-                    </strong>
-                </div>
-
-                <!-- Charger & Vehicle Grid -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem;">
-                    <div style="background-color: #0F172A; border: 1px solid #2A3859; padding: 0.85rem 1.25rem; border-radius: 0.75rem;">
-                        <span style="display: block; font-size: 0.65rem; color: #94A3B8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">
-                            CHARGER / PLUG
+    {{-- Stepper --}}
+    @if (! $failed)
+        <div class="card reveal mb-5 p-5 sm:p-6" style="--i:1">
+            <ol class="relative grid grid-cols-4">
+                @foreach ($steps as $i => $label)
+                    @php $done = $i < $stepIndex; $now = $i === $stepIndex; @endphp
+                    <li class="relative flex flex-col items-center text-center">
+                        @if ($i > 0)<span class="absolute right-1/2 top-4 h-0.5 w-full {{ $i <= $stepIndex ? 'bg-gradient-to-r from-emerald-400 to-cyan-400' : 'bg-white/10' }}"></span>@endif
+                        <span class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border text-xs font-extrabold transition {{ $done ? 'border-transparent bg-gradient-to-br from-emerald-400 to-cyan-400 text-ink-950' : ($now ? 'border-emerald-400 bg-ink-900 text-emerald-300 shadow-glow' : 'border-white/10 bg-ink-900 text-slate-600') }}">
+                            @if ($done)<x-icon name="check" class="h-4 w-4" :stroke="3" />@else{{ $i + 1 }}@endif
                         </span>
-                        <strong style="color: #60A5FA; font-size: 0.95rem;">
-                            {{ $reservation->charger->name ?? 'Charger #'.$reservation->charger_id }}
-                        </strong>
+                        <span class="mt-2 text-[11px] font-bold {{ $now ? 'text-emerald-300' : ($done ? 'text-slate-300' : 'text-slate-600') }}">{{ $label }}</span>
+                    </li>
+                @endforeach
+            </ol>
+        </div>
+    @else
+        <div class="reveal mb-5 flex items-start gap-3 rounded-2xl border border-rose-400/30 bg-rose-400/10 p-4 text-rose-200" style="--i:1">
+            <x-icon name="x-circle" class="mt-0.5 h-5 w-5 shrink-0" />
+            <p class="text-sm font-semibold">{{ $status === 'expired' ? 'Reservasi kedaluwarsa karena tidak dikonfirmasi tepat waktu atau jadwal terlewat.' : 'Reservasi ini telah dibatalkan.' }} Port sudah dilepas untuk pengemudi lain.</p>
+        </div>
+    @endif
+
+    <div class="grid gap-5 lg:grid-cols-3">
+        <div class="space-y-5 lg:col-span-2">
+            {{-- Detail --}}
+            <section class="card reveal overflow-hidden" style="--i:2">
+                <div class="bg-gradient-to-br from-emerald-400/10 to-transparent p-6">
+                    <h2 class="text-lg font-bold">{{ $location->nama_lokasi ?? 'SPKLU' }}</h2>
+                    <p class="mt-1 flex items-start gap-2 text-sm text-slate-400"><x-icon name="pin" class="mt-0.5 h-4 w-4 shrink-0" />{{ $location->alamat ?? '-' }}</p>
+                </div>
+                <dl class="grid grid-cols-2 divide-white/5 border-t border-white/5 sm:grid-cols-4 sm:divide-x">
+                    <div class="p-5"><dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Charger</dt><dd class="mt-1 text-sm font-bold text-white">#{{ $r->charger_id }}</dd><dd class="text-xs text-slate-500">{{ $r->charger->charger_type ?? '' }}</dd></div>
+                    <div class="p-5"><dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Daya</dt><dd class="mt-1 text-sm font-bold text-white">{{ (float) ($r->charger->power_kw ?? 0) }} kW</dd></div>
+                    <div class="p-5"><dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Kendaraan</dt><dd class="mt-1 text-sm font-bold text-white">{{ $r->vehicle ? $r->vehicle->merek . ' ' . $r->vehicle->model : '—' }}</dd><dd class="text-xs text-slate-500">{{ $r->vehicle->nomor_polisi ?? '' }}</dd></div>
+                    <div class="p-5"><dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Jadwal</dt><dd class="mt-1 text-sm font-bold text-white">{{ $r->waktu_mulai->format('d M, H:i') }}</dd><dd class="text-xs text-slate-500">s/d {{ $r->waktu_selesai->format('H:i') }}</dd></div>
+                </dl>
+                @if ($tariff)
+                    <p class="border-t border-white/5 px-6 py-3 text-xs text-slate-500">Tarif Rp {{ number_format($tariff->harga_per_kwh, 0, ',', '.') }}/kWh. Melewati jam selesai dikenakan denda Rp {{ number_format($tariff->overstay_fee_per_menit, 0, ',', '.') }}/menit.</p>
+                @endif
+            </section>
+
+            {{-- Aksi --}}
+            <section class="card reveal p-6" style="--i:3">
+                @if ($status === 'pending')
+                    <h3 class="font-bold">Konfirmasi reservasi Anda</h3>
+                    <p class="mt-1 text-sm text-slate-400">Setelah dikonfirmasi, slot ditahan sampai {{ $r->waktu_selesai->format('H:i') }} dan Anda bisa scan QR untuk memulai.</p>
+                    @if ($balance < $minBalance)
+                        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-200"><span>Saldo minimal Rp {{ number_format($minBalance, 0, ',', '.') }} dibutuhkan.</span><a href="{{ route('topup.index') }}" class="btn-warn btn-sm">Top up</a></div>
+                    @endif
+                    <div class="mt-5 flex flex-wrap gap-3">
+                        <form method="POST" action="{{ route('reservations.confirm', $r->id_reservation) }}">@csrf<button class="btn-primary btn-lg"><x-icon name="check" class="h-5 w-5" />Konfirmasi reservasi</button></form>
+                        <x-confirm :action="route('reservations.cancel', $r->id_reservation)" title="Batalkan reservasi?" text="Slot akan dilepas dan bisa dipesan orang lain." confirm="Ya, batalkan">
+                            <x-slot name="trigger"><button type="button" class="btn-soft-danger btn-lg">Batalkan</button></x-slot>
+                        </x-confirm>
                     </div>
-
-                    <div style="background-color: #0F172A; border: 1px solid #2A3859; padding: 0.85rem 1.25rem; border-radius: 0.75rem;">
-                        <span style="display: block; font-size: 0.65rem; color: #94A3B8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">
-                            KENDARAAN
-                        </span>
-                        <strong style="color: #34D399; font-size: 0.95rem;">
-                            🚗 {{ $reservation->vehicle->merek ?? $reservation->vehicle->brand ?? $reservation->vehicle->merk ?? 'EV Car' }} {{ $reservation->vehicle->model ?? $reservation->vehicle->nama_kendaran ?? '' }}
-                        </strong>
+                @elseif ($status === 'confirmed')
+                    <h3 class="font-bold">Reservasi terkonfirmasi</h3>
+                    <p class="mt-1 text-sm text-slate-400">Datang ke stasiun, lalu scan QR di charger atau masukkan ID booking untuk memulai.</p>
+                    <div class="mt-5 flex flex-wrap gap-3">
+                        <a href="{{ route('driver.scan', ['booking_id' => $r->id_reservation]) }}" class="btn-primary btn-lg"><x-icon name="scan" class="h-5 w-5" />Scan &amp; mulai charging</a>
+                        <x-confirm :action="route('reservations.cancel', $r->id_reservation)" title="Batalkan reservasi?" text="Slot akan dilepas dan bisa dipesan orang lain." confirm="Ya, batalkan">
+                            <x-slot name="trigger"><button type="button" class="btn-soft-danger btn-lg">Batalkan</button></x-slot>
+                        </x-confirm>
                     </div>
-                </div>
-
-                <!-- Waktu Sesi -->
-                <div style="background-color: #0F172A; border: 1px solid #2A3859; padding: 0.85rem 1.25rem; border-radius: 0.75rem;">
-                    <span style="display: block; font-size: 0.65rem; color: #94A3B8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">
-                        WAKTU SESI PENGISIAN
-                    </span>
-                    <strong style="color: #E2E8F0; font-size: 0.9rem;">
-                        {{ \Carbon\Carbon::parse($reservation->waktu_mulai)->format('d M Y, H:i') }} s/d {{ \Carbon\Carbon::parse($reservation->waktu_selesai)->format('d M Y, H:i') }}
-                    </strong>
-                </div>
-            </div>
-
-            <!-- TAHAP 1: JIKA STATUS PENDING (TAHAP PENGECEKAN DATA MAX 3 JAM) -->
-            @if($reservation->status === 'pending')
-                <div style="background-color: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 1rem; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem;">
-                    <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #FBBF24; text-transform: uppercase; letter-spacing: 0.05em;">
-                        SISA WAKTU HOLDING SLOT (MAX 3 JAM)
-                    </span>
-                    <h1 id="countdown-timer" style="font-size: 2.25rem; font-weight: 800; color: #F59E0B; margin: 0.25rem 0; font-family: monospace;">
-                        --:--:--
-                    </h1>
-                    <small style="color: #94A3B8; font-size: 0.75rem;">Slot Anda ditahan selama maksimal 3 jam. Tekan konfirmasi untuk membuka QR Code aktivasi.</small>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <form action="{{ route('reservations.confirm', $reservation->id_reservation) }}" method="POST">
-                        @csrf
-                        <button type="submit" style="width: 100%; background-color: #2563EB; color: #FFFFFF; font-weight: 800; border: none; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
-                            Lanjut ke Detail & QR Aktivasi →
-                        </button>
-                    </form>
-
-                    <form action="{{ route('reservations.cancel', $reservation->id_reservation) }}" method="POST">
-                        @csrf
-                        <button type="submit" onclick="return confirm('Apakah Anda yakin ingin membatalkan reservasi ini?');" style="width: 100%; background-color: transparent; border: 1px solid #EF4444; color: #F87171; font-weight: 700; padding: 0.65rem; border-radius: 0.75rem; font-size: 0.85rem; cursor: pointer;">
-                            Batalkan Reservasi
-                        </button>
-                    </form>
-                </div>
-
-            <!-- TAHAP 2: JIKA STATUS CONFIRMED -->
-            @elseif($reservation->status === 'confirmed')
-                <div style="background-color: #0F172A; border: 1px dashed #3B82F6; border-radius: 1rem; padding: 1.5rem; text-align: center; margin-bottom: 1.5rem;">
-                    <span style="display: block; font-size: 0.75rem; font-weight: 800; color: #60A5FA; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">
-                        SCAN QR CODE INI PADA MESIN SPKLU
-                    </span>
-                    
-                    <div style="background: white; padding: 1rem; display: inline-block; border-radius: 0.75rem; margin-bottom: 0.75rem;">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{ $reservation->id_reservation }}" alt="QR Code Reservasi" style="width: 160px; height: 160px;">
+                @elseif ($status === 'active')
+                    <h3 class="font-bold">Sedang mengisi daya</h3>
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        @if ($session)<a href="{{ route('driver.charging.monitor', $session->id_session) }}" class="btn-primary btn-lg"><x-icon name="bolt" class="h-5 w-5" />Pantau charging</a>@endif
                     </div>
-
-                    <p style="color: #94A3B8; font-size: 0.8rem; margin: 0;">
-                        Tunjukkan QR ini ke scanner mesin SPKLU atau masukkan ID Manual <strong style="color: #FFF;">#{{ $reservation->id_reservation }}</strong> pada mesin.
-                    </p>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <a href="{{ route('driver.scan', ['booking_id' => $reservation->id_reservation]) }}" style="width: 100%; background-color: #10B981; color: #FFFFFF; font-weight: 800; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; text-decoration: none; text-align: center; display: block; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
-                        ⚡ Mulai / Aktivasi Charging (Scan / Input ID)
-                    </a>
-
-                    <form action="{{ route('reservations.cancel', $reservation->id_reservation) }}" method="POST">
-                        @csrf
-                        <button type="submit" onclick="return confirm('Apakah Anda yakin ingin membatalkan reservasi ini?');" style="width: 100%; background-color: transparent; border: 1px solid #EF4444; color: #F87171; font-weight: 700; padding: 0.65rem; border-radius: 0.75rem; font-size: 0.85rem; cursor: pointer;">
-                            Batalkan Reservasi
-                        </button>
-                    </form>
-                </div>
-
-            <!-- TAHAP 3: CHARGING BERJALAN -->
-            @elseif(in_array($reservation->status, ['active', 'charging']))
-                <div style="background-color: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 1rem; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem;">
-                    <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #60A5FA; text-transform: uppercase; letter-spacing: 0.05em;">
-                        STATUS SESI
-                    </span>
-                    <h2 style="font-size: 1.5rem; font-weight: 800; color: #3B82F6; margin: 0.25rem 0;">
-                        ⚡ Pengisian Daya Sedang Berlangsung
-                    </h2>
-                </div>
-
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <a href="{{ route('driver.charging.monitor', $reservation->id_reservation) }}" style="width: 100%; background-color: #2563EB; color: #FFFFFF; font-weight: 800; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; text-decoration: none; text-align: center; display: block;">
-                        📊 Pantau Telemetry Charging Real-Time
-                    </a>
-
-                    <form action="{{ route('driver.charging.stop', $reservation->id_reservation) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghentikan pengisian daya dan memotong saldo?');">
-                        @csrf
-                        <button type="submit" style="width: 100%; background-color: #DC2626; color: #FFFFFF; font-weight: 800; border: none; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(220,38,38,0.3);">
-                            ⏹ Berhenti Charging & Lihat Struk Pembayaran
-                        </button>
-                    </form>
-                </div>
-
-            <!-- TAHAP 4: RESERVASI DIBATALKAN / EXPIRED -->
-            @elseif(in_array($reservation->status, ['cancelled', 'expired']))
-                <div style="background-color: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 1rem; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem;">
-                    <h2 style="font-size: 1.5rem; font-weight: 800; color: #EF4444; margin: 0.25rem 0;">
-                        ✖ Reservasi Telah Dibatalkan / Kadaluarsa
-                    </h2>
-                </div>
-
-                <div>
-                    <a href="{{ route('reservations.index') }}" style="width: 100%; background-color: #334155; color: #FFFFFF; font-weight: 800; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; text-decoration: none; text-align: center; display: block;">
-                        ← Kembali ke Daftar Reservasi
-                    </a>
-                </div>
-
-            <!-- TAHAP 5: COMPLETED -->
-            @else
-                <div style="background-color: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 1rem; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem;">
-                    <h2 style="font-size: 1.5rem; font-weight: 800; color: #10B981; margin: 0.25rem 0;">
-                        ✓ Pengisian Daya Telah Berhasil
-                    </h2>
-                </div>
-
-                <div>
-                    <a href="{{ route('driver.charging.receipt', $reservation->id_reservation) }}" style="width: 100%; background-color: #059669; color: #FFFFFF; font-weight: 800; padding: 0.85rem; border-radius: 0.75rem; font-size: 0.95rem; text-decoration: none; text-align: center; display: block;">
-                        🧾 Lihat Struk / Bukti Transaksi Saldo
-                    </a>
-                </div>
-            @endif
-
+                @elseif ($status === 'completed')
+                    <h3 class="font-bold">Pengisian selesai</h3>
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        @if ($session)<a href="{{ route('driver.charging.receipt', $session->id_session) }}" class="btn-primary"><x-icon name="receipt" class="h-4 w-4" />Lihat struk</a>@endif
+                        <a href="{{ route('reservations.index') }}" class="btn-secondary">Semua reservasi</a>
+                    </div>
+                @else
+                    <div class="flex flex-wrap gap-3">
+                        @if ($location)<a href="{{ route('spklu.show', $location->id_location) }}" class="btn-primary">Pesan ulang</a>@endif
+                        <a href="{{ route('reservations.index') }}" class="btn-secondary">Semua reservasi</a>
+                    </div>
+                @endif
+            </section>
         </div>
 
+        {{-- Countdown --}}
+        <aside>
+            @if ($holding)
+                <section class="card reveal p-6 text-center" style="--i:3"
+                         x-data="countdown({ remaining: {{ $remaining }}, total: {{ $total }}, url: '{{ route('reservations.timer', $r->id_reservation) }}', status: '{{ $status }}' })">
+                    <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400">{{ $status === 'pending' ? 'Konfirmasi dalam' : 'Slot ditahan hingga' }}</p>
+                    <div class="relative mx-auto my-5 flex h-44 w-44 items-center justify-center">
+                        <svg viewBox="0 0 120 120" class="absolute inset-0 -rotate-90">
+                            <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8" />
+                            <circle cx="60" cy="60" r="52" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="326.7" :stroke-dashoffset="326.7 * (1 - pct)" :stroke="pct < .15 ? '#fb7185' : (pct < .4 ? '#fbbf24' : '#34d399')" class="transition-all duration-1000 ease-linear" />
+                        </svg>
+                        <div><p class="font-mono text-3xl font-extrabold text-white" x-text="label">--:--:--</p><p class="mt-1 text-[11px] text-slate-500">sisa waktu</p></div>
+                    </div>
+                    <p class="text-xs text-slate-500">Berakhir {{ $r->expires_at->format('d M, H:i') }}</p>
+                </section>
+            @endif
+        </aside>
     </div>
 
-    @if($reservation->status === 'pending')
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const reservationId = "{{ $reservation->id_reservation }}";
-        const timerElement = document.getElementById('countdown-timer');
-
-        // Parse ISO format string secara aman
-        const createdAtTime = new Date("{{ \Carbon\Carbon::parse($reservation->created_at)->toIso8601String() }}").getTime();
-        const expiresAtTime = createdAtTime + (3 * 60 * 60 * 1000); // 3 Jam
-
-        function checkTimer() {
-            if (!timerElement) return;
-
-            fetch(`/reservations/${reservationId}/timer`)
-                .then(response => response.json())
-                .then(data => {
-                    const secondsLeft = data.remaining_seconds !== undefined ? data.remaining_seconds : data.remaining;
-
-                    if (data.is_expired || data.status === 'expired' || secondsLeft <= 0) {
-                        timerElement.innerText = "00:00:00";
-                        timerElement.style.color = "#EF4444";
-                        setTimeout(() => window.location.reload(), 1500);
-                        return;
-                    }
-
-                    const totalSeconds = Math.floor(secondsLeft);
-                    const hours = Math.floor(totalSeconds / 3600);
-                    const minutes = Math.floor((totalSeconds % 3600) / 60);
-                    const seconds = Math.floor(totalSeconds % 60);
-
-                    timerElement.innerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                    timerElement.style.color = "#F59E0B";
-                })
-                .catch(error => {
-                    // Fallback hitung mundur jika API timer offline
-                    const now = new Date().getTime();
-                    const distance = expiresAtTime - now;
-
-                    if (distance <= 0) {
-                        timerElement.innerText = "00:00:00";
-                        timerElement.style.color = "#EF4444";
-                        return;
-                    }
-
-                    const hours = Math.floor(distance / (1000 * 60 * 60));
-                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-                    timerElement.innerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                    timerElement.style.color = "#F59E0B";
-                });
-        }
-
-        checkTimer();
-        setInterval(checkTimer, 1000);
-    });
-    </script>
+    @if ($holding)
+        @push('scripts')
+        <script>
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('countdown', (cfg) => ({
+                    remaining: cfg.remaining, total: cfg.total,
+                    get pct() { return Math.max(0, Math.min(1, this.remaining / this.total)); },
+                    get label() {
+                        const s = Math.max(0, this.remaining), p = n => String(n).padStart(2, '0');
+                        return p(Math.floor(s / 3600)) + ':' + p(Math.floor(s % 3600 / 60)) + ':' + p(s % 60);
+                    },
+                    init() {
+                        setInterval(() => {
+                            this.remaining = Math.max(0, this.remaining - 1);
+                            if (this.remaining === 0) setTimeout(() => location.reload(), 1200);
+                        }, 1000);
+                        setInterval(async () => {
+                            try {
+                                const d = await (await fetch(cfg.url, { headers: { Accept: 'application/json' } })).json();
+                                this.remaining = d.remaining_seconds;
+                                if (d.status !== cfg.status) location.reload();
+                            } catch (e) {}
+                        }, 20000);
+                    },
+                }));
+            });
+        </script>
+        @endpush
     @endif
 </x-app-layout>

@@ -1,105 +1,61 @@
-<x-app-layout>
-    <div class="py-10 min-h-screen">
-        <!-- Container dibuat max-w-xl agar tidak terlalu lebar -->
-        <div class="max-w-xl mx-auto px-4 sm:px-6">
-            
-            <!-- Judul Halaman -->
-            <div class="mb-6 text-center">
-                <h2 class="text-2xl font-bold text-white tracking-wide">
-                    Top Up Saldo EVCharge
-                </h2>
-                <p class="text-gray-400 text-sm mt-1">
-                    Isi saldo dompet digital untuk pembayaran charging kendaraan listrik Anda.
-                </p>
-            </div>
+<x-app-layout title="Isi Saldo">
+    <x-page-header eyebrow="Dompet" title="Isi saldo" subtitle="Saldo dipakai untuk membayar sesi charging secara otomatis." />
 
-            <!-- Card Utama -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-6 sm:p-8">
-                
-                {{-- ALERT SUKSES DENGAN TOMBOL SELESAI --}}
-                @if (session('success'))
-                    <div class="mb-6 p-4 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 flex items-center justify-between">
-                        <div class="flex items-center space-x-2">
-                            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            <span class="text-sm font-semibold">{{ session('success') }}</span>
-                        </div>
+    <div class="grid gap-5 lg:grid-cols-5" x-data="{ amount: {{ (int) old('amount', 100000) }}, method: '{{ old('metode', $methods[0]) }}' }">
+        <form method="POST" action="{{ route('topup.store') }}" class="space-y-5 lg:col-span-3">
+            @csrf
+            @if ($outstanding > 0)
+                <div class="reveal flex items-start gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200"><x-icon name="alert" class="mt-0.5 h-5 w-5 shrink-0" />Tagihan tertunggak Rp {{ number_format($outstanding, 0, ',', '.') }} akan dilunasi otomatis dari top up ini.</div>
+            @endif
 
-                        {{-- TOMBOL SELESAI --}}
-                        <a href="{{ route('spklu.index') }}" 
-                           class="inline-flex items-center px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition shadow-md flex-shrink-0 ml-3">
-                            Selesai
-                            <svg class="w-3.5 h-3.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                            </svg>
-                        </a>
-                    </div>
-                @endif
-
-                <!-- Card Info Saldo -->
-                <div class="mb-6 p-5 rounded-xl bg-gradient-to-r from-blue-900/30 via-slate-800 to-slate-800 border border-blue-500/30 text-center sm:text-left">
-                    <span class="text-xs font-semibold uppercase tracking-wider text-blue-400">Saldo Saat Ini</span>
-                    <div class="text-3xl font-extrabold text-white mt-1">
-                        Rp {{ number_format(Auth::user()->balance ?? 0, 0, ',', '.') }}
-                    </div>
+            <section class="card reveal p-6" style="--i:1">
+                <h2 class="font-bold">Nominal</h2>
+                <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    @foreach ([50000, 100000, 200000, 300000, 500000, 1000000] as $n)
+                        <label class="choice justify-center !p-3.5 text-center"><input type="radio" class="sr-only" value="{{ $n }}" x-model.number="amount"><span class="text-sm font-extrabold text-white">Rp {{ number_format($n, 0, ',', '.') }}</span></label>
+                    @endforeach
                 </div>
+                <div class="relative mt-4">
+                    <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500">Rp</span>
+                    <input type="number" name="amount" min="10000" max="10000000" step="1000" x-model.number="amount" required class="input pl-11 text-lg font-extrabold" placeholder="Nominal lain">
+                </div>
+                <p class="mt-2 text-xs text-slate-500">Minimal Rp 10.000 · maksimal Rp 10.000.000.</p>
+                <x-input-error :messages="$errors->get('amount')" class="mt-1" />
+            </section>
 
-                <!-- Form Top Up -->
-                <form action="{{ route('topup.store') }}" method="POST" class="space-y-6">
-                    @csrf
-                    
-                    <div>
-                        <label for="amount" class="block text-sm font-medium text-slate-300 mb-2">
-                            Nominal Top Up (Minimal Rp 10.000)
-                        </label>
-                        
-                        <!-- Wrapper Input dengan padding-left (pl-14) agar tidak bertumpukan -->
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <span class="text-slate-400 font-bold text-base">Rp</span>
-                            </div>
-                            <input type="number" 
-                                   name="amount" 
-                                   id="amount" 
-                                   min="10000" 
-                                   step="1000" 
-                                   placeholder="50000"
-                                   style="padding-left: 3.25rem !important;"
-                                   class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 pr-4 text-white placeholder-slate-500 text-lg font-semibold focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all duration-200" 
-                                   required>
-                        </div>
-                        
-                        @error('amount')
-                            <p class="mt-2 text-sm text-rose-400 font-medium">{{ $message }}</p>
-                        @enderror
+            <section class="card reveal p-6" style="--i:2">
+                <h2 class="font-bold">Metode pembayaran</h2>
+                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                    @foreach ($methods as $m)
+                        <label class="choice"><input type="radio" name="metode" value="{{ $m }}" x-model="method" class="sr-only"><span class="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5 text-slate-300"><x-icon :name="$m === 'QRIS' ? 'scan' : ($m === 'Kartu Kredit' ? 'receipt' : 'wallet')" class="h-5 w-5" /></span><span class="text-sm font-bold text-white">{{ $m }}</span></label>
+                    @endforeach
+                </div>
+                <x-input-error :messages="$errors->get('metode')" class="mt-2" />
+                <p class="mt-4 text-xs text-slate-500">Mode simulasi: saldo langsung bertambah tanpa gateway pembayaran sungguhan.</p>
+            </section>
+
+            <button type="submit" class="btn-primary btn-lg btn-block reveal" style="--i:3" :disabled="!amount || amount < 10000">Top up <span x-text="rupiah(amount)"></span> <x-icon name="arrow-right" class="h-4 w-4" /></button>
+        </form>
+
+        <aside class="space-y-5 lg:col-span-2">
+            <section class="card reveal relative overflow-hidden p-6" style="--i:1">
+                <div class="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl"></div>
+                <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Saldo saat ini</p>
+                <p class="mt-2 text-4xl font-extrabold text-white"><span data-count="{{ (float) auth()->user()->balance }}" data-prefix="Rp ">Rp {{ number_format((float) auth()->user()->balance, 0, ',', '.') }}</span></p>
+                <p class="mt-3 text-xs text-slate-500">Setelah top up: <b class="text-emerald-300" x-text="rupiah({{ (float) auth()->user()->balance }} + (Number(amount) || 0))"></b></p>
+            </section>
+
+            <section class="card reveal" style="--i:2">
+                <div class="card-head"><h2 class="font-bold">Top up terakhir</h2></div>
+                @forelse ($payments as $p)
+                    <div class="flex items-center justify-between gap-3 border-b border-white/5 px-6 py-3.5 last:border-0">
+                        <div><p class="text-sm font-bold text-white">{{ $p->metode }}</p><p class="text-xs text-slate-500">{{ ($p->waktu_pembayaran ?? $p->created_at)->format('d M Y, H:i') }}</p></div>
+                        <p class="text-sm font-extrabold text-emerald-300">+Rp {{ number_format((float) $p->jumlah, 0, ',', '.') }}</p>
                     </div>
-
-                    <!-- Shortcut Pilihan Nominal (Menyamping / Grid 3 Kolom) -->
-                    <div>
-                        <span class="block text-xs font-medium text-slate-400 mb-2">Pilihan Nominal Cepat:</span>
-                        <div class="grid grid-cols-3 gap-3">
-                            <button type="button" onclick="document.getElementById('amount').value=20000" class="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs sm:text-sm font-semibold text-slate-200 text-center transition">
-                                + Rp 20rb
-                            </button>
-                            <button type="button" onclick="document.getElementById('amount').value=50000" class="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs sm:text-sm font-semibold text-slate-200 text-center transition">
-                                + Rp 50rb
-                            </button>
-                            <button type="button" onclick="document.getElementById('amount').value=100000" class="py-2.5 px-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs sm:text-sm font-semibold text-slate-200 text-center transition">
-                                + Rp 100rb
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Tombol Submit -->
-                    <div class="pt-2">
-                        <button type="submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-base rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-200">
-                            Konfirmasi Top Up
-                        </button>
-                    </div>
-                </form>
-
-            </div>
-        </div>
+                @empty
+                    <x-empty icon="wallet" title="Belum ada top up" class="!py-10" />
+                @endforelse
+            </section>
+        </aside>
     </div>
 </x-app-layout>

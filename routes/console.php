@@ -9,4 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Tambahkan baris ini untuk menjalankan cleanup otomatis setiap menit
-Schedule::command('reservations:cleanup-expired')->everyMinute();
+Schedule::command('reservations:cleanup')->everyMinute();

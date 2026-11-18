@@ -1,124 +1,84 @@
-<x-app-layout>
+<x-app-layout title="Monitoring Charging">
     @php
-        // 1. Ambil Relasi Lokasi & Kendaraan secara aman
-        $location = $session->charger->location ?? $session->location ?? null;
-        $vehicle  = $session->reservation->vehicle ?? $session->vehicle ?? null;
-        $sessionId = $session->id_session ?? $session->id_reservation ?? $session->id;
-
-        // 2. Waktu Mulai untuk Timer JavaScript Initial
-        $startTimeIso = $session->waktu_mulai ?? $session->start_time ?? $session->created_at ?? now();
-        $startTimeIso = \Carbon\Carbon::parse($startTimeIso)->toIso8601String();
-
-        // 3. Penanganan Route Stop Charging
-        $stopRoute = '#';
-        if (\Illuminate\Support\Facades\Route::has('driver.charging.stop')) {
-            $stopRoute = route('driver.charging.stop', $sessionId);
-        } elseif (\Illuminate\Support\Facades\Route::has('charging.stop')) {
-            $stopRoute = route('charging.stop', $sessionId);
-        }
+        $loc = $session->charger?->location;
+        $v = $session->reservation?->vehicle;
+        $endsAt = $session->reservation?->waktu_selesai;
     @endphp
 
-    <div class="container py-8 max-w-xl mx-auto px-4 min-h-screen">
-        <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-2xl text-white">
-            
-            {{-- HEADER SESI AKTIF --}}
-            <div class="flex items-center justify-between mb-4">
-                <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold rounded-full flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> CHARGING ACTIVE
-                </span>
-                <span class="text-xs font-mono text-slate-400">ID Sesi: #EV-TRX-{{ $sessionId }}</span>
-            </div>
+    <x-page-header eyebrow="Live" title="Sedang mengisi daya" :subtitle="($loc->nama_lokasi ?? 'SPKLU') . ' · Charger #' . $session->id_charger">
+        <x-slot name="actions"><x-status-badge status="running" type="session" class="!px-3.5 !py-2 !text-xs" /></x-slot>
+    </x-page-header>
 
-            {{-- DETAIL SPKLU & KENDARAAN --}}
-            <h3 class="text-lg font-bold text-white mb-1">
-                {{ $location->nama_lokasi ?? $location->name ?? 'SPKLU Voltron Yogyakarta' }}
-            </h3>
-            <p class="text-xs text-slate-400 mb-6">
-                {{ $session->charger->name ?? $session->charger->nama_charger ?? 'Charger Slot' }} • 
-                @if($vehicle)
-                    {{ ($vehicle->merek ?? $vehicle->brand ?? '') . ' ' . ($vehicle->model ?? '') }} ({{ $vehicle->plat_nomor ?? $vehicle->license_plate ?? 'BEV' }})
-                @else
-                    Tesla 3 Long Range (AB 1234 EV)
-                @endif
-            </p>
+    <div x-data="telemetry({ url: '{{ route('driver.charging.telemetry', $session->id_session) }}', init: @js($bill) })" class="grid gap-5 lg:grid-cols-5">
+        {{-- Gauge --}}
+        <section class="card reveal relative overflow-hidden p-8 text-center lg:col-span-3" style="--i:1">
+            <div class="pointer-events-none absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/15 blur-3xl"></div>
 
-            {{-- LIVE METRICS BOX --}}
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 text-center">
-                    <p class="text-xs text-slate-400 mb-1">Total Energi</p>
-                    <h2 class="text-2xl font-black text-cyan-400" id="live-kwh">
-                        {{ number_format((float)($session->energy_kwh ?? $session->energi_kwh ?? 0), 2) }} 
-                        <span class="text-xs font-normal">kWh</span>
-                    </h2>
-                </div>
-                <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 text-center">
-                    <p class="text-xs text-slate-400 mb-1">Estimasi Biaya</p>
-                    <h2 class="text-2xl font-black text-amber-400" id="live-cost">
-                        Rp {{ number_format((float)($session->total_cost ?? $session->estimasi_biaya ?? 0), 0, ',', '.') }}
-                    </h2>
+            <div x-show="low" x-cloak x-transition class="relative mb-6 flex items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-left text-sm text-amber-200"><x-icon name="alert" class="h-5 w-5 shrink-0" />Saldo hampir habis. Biaya mendekati saldo Anda; sisa tagihan tercatat bila saldo kurang.<a href="{{ route('topup.index') }}" class="ml-auto shrink-0 font-bold underline">Top up</a></div>
+
+            <div class="relative mx-auto flex h-64 w-64 items-center justify-center sm:h-72 sm:w-72">
+                <span class="absolute inset-4 rounded-full ring-pulse"></span>
+                <svg viewBox="0 0 120 120" class="absolute inset-0 -rotate-90">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="7" />
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="url(#cg)" stroke-width="7" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="230" class="animate-spin-slow" style="transform-origin:center;animation-duration:3.5s" />
+                    <defs><linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399" /><stop offset="1" stop-color="#22d3ee" /></linearGradient></defs>
+                </svg>
+                <div class="relative">
+                    <x-icon name="bolt" class="mx-auto h-8 w-8 animate-pulse text-emerald-300" :stroke="2.4" />
+                    <p class="mt-1 text-6xl font-extrabold tracking-tight text-white" x-text="kwh.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })">0,00</p>
+                    <p class="text-sm font-semibold text-slate-400">kWh terisi</p>
                 </div>
             </div>
 
-            {{-- DURASI PENGISIAN --}}
-            <div class="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 text-center mb-6">
-                <p class="text-xs text-slate-400 mb-1">Durasi Pengisian Daya</p>
-                <h1 class="text-3xl font-mono font-bold text-white tracking-widest" id="live-timer">00:00:00</h1>
+            <div class="relative mt-8 grid grid-cols-3 gap-3">
+                <div class="rounded-2xl bg-white/[0.05] p-4"><p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Durasi</p><p class="mt-1 font-mono text-lg font-extrabold text-white sm:text-xl" x-text="time">00:00:00</p></div>
+                <div class="rounded-2xl bg-white/[0.05] p-4"><p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Daya</p><p class="mt-1 text-lg font-extrabold text-sky-300 sm:text-xl"><span x-text="power">0</span> kW</p></div>
+                <div class="rounded-2xl bg-white/[0.05] p-4"><p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Biaya</p><p class="mt-1 text-lg font-extrabold text-amber-300 sm:text-xl" x-text="rupiah(cost)">Rp 0</p></div>
             </div>
+            <div class="relative mt-6 h-2 overflow-hidden rounded-full bg-white/10"><div class="stripe-flow h-full w-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400"></div></div>
+        </section>
 
-            {{-- TOMBOL STOP SESSION --}}
-            <form action="{{ $stopRoute }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghentikan pengisian daya?')">
-                @csrf
-                <button type="submit" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm shadow-lg shadow-red-900/30 flex items-center justify-center gap-2 transition">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
-                    </svg>
-                    Berhenti Charging (Stop Session)
-                </button>
-            </form>
-        </div>
+        {{-- Info & aksi --}}
+        <aside class="space-y-5 lg:col-span-2">
+            <section class="card reveal p-6" style="--i:2">
+                <h2 class="font-bold">Detail sesi</h2>
+                <dl class="mt-4 space-y-3 text-sm">
+                    <div class="flex justify-between"><dt class="text-slate-500">ID sesi</dt><dd class="font-bold text-white">#{{ $session->id_session }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-500">Mulai</dt><dd class="font-bold text-white">{{ $session->waktu_mulai->format('d M, H:i') }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-500">Kendaraan</dt><dd class="font-bold text-white">{{ $v ? $v->merek . ' ' . $v->model : '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-500">Tarif</dt><dd class="font-bold text-white">Rp <span x-text="Math.round(rate).toLocaleString('id-ID')"></span>/kWh</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-500">Saldo</dt><dd class="font-bold text-emerald-300" x-text="rupiah(balance)">-</dd></div>
+                    @if ($endsAt)<div class="flex justify-between"><dt class="text-slate-500">Batas reservasi</dt><dd class="font-bold text-white">{{ $endsAt->format('H:i') }}</dd></div>@endif
+                </dl>
+                <div x-show="overstay > 0" x-cloak class="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 p-3 text-xs text-rose-200">Melewati batas reservasi <b x-text="overstay"></b> menit. Denda overstay berlaku.</div>
+            </section>
+
+            <section class="card reveal p-6" style="--i:3">
+                <p class="text-sm text-slate-400">Selesai mengisi? Hentikan sesi untuk menutup transaksi. Biaya dipotong otomatis dari saldo.</p>
+                <x-confirm :action="route('driver.charging.stop', $session->id_session)" tone="warn" icon="stop" title="Hentikan pengisian?" text="Sesi akan diakhiri dan biaya final dipotong dari saldo Anda." confirm="Ya, hentikan" class="mt-4 !block">
+                    <x-slot name="trigger"><button type="button" class="btn-danger btn-lg btn-block"><x-icon name="stop" class="h-5 w-5" />Hentikan pengisian</button></x-slot>
+                </x-confirm>
+            </section>
+        </aside>
     </div>
 
-    {{-- SCRIPT TELEMETRY REAL-TIME --}}
+    @push('scripts')
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const sessionId = "{{ $sessionId }}";
-        const startTime = new Date("{{ $startTimeIso }}").getTime();
-        const powerKw = {{ $session->charger->power_kw ?? 22 }};
-        const tarifPerKwh = 2466;
-
-        function updateTelemetry() {
-            fetch(`/charging/session/${sessionId}/telemetry`)
-                .then(res => res.json())
-                .then(data => {
-                    if(data && data.energy_kwh !== undefined) {
-                        document.getElementById('live-kwh').innerHTML = `${parseFloat(data.energy_kwh).toFixed(2)} <span class="text-xs font-normal">kWh</span>`;
-                        document.getElementById('live-cost').innerText = `Rp ${new Intl.NumberFormat('id-ID').format(data.total_cost || Math.round(data.energy_kwh * tarifPerKwh))}`;
-                        if(data.formatted_time) {
-                            document.getElementById('live-timer').innerText = data.formatted_time;
-                        }
-                    }
-                })
-                .catch(err => {
-                    // Fallback hitung lokal jika server fetch delay
-                    const now = new Date().getTime();
-                    const secondsElapsed = Math.max(1, Math.floor((now - startTime) / 1000));
-                    
-                    const hours = String(Math.floor(secondsElapsed / 3600)).padStart(2, '0');
-                    const minutes = String(Math.floor((secondsElapsed % 3600) / 60)).padStart(2, '0');
-                    const seconds = String(secondsElapsed % 60).padStart(2, '0');
-                    
-                    document.getElementById('live-timer').innerText = `${hours}:${minutes}:${seconds}`;
-
-                    const calcKwh = ((powerKw / 3600) * secondsElapsed).toFixed(2);
-                    const calcCost = Math.round(calcKwh * tarifPerKwh);
-
-                    document.getElementById('live-kwh').innerHTML = `${calcKwh} <span class="text-xs font-normal">kWh</span>`;
-                    document.getElementById('live-cost').innerText = `Rp ${new Intl.NumberFormat('id-ID').format(calcCost)}`;
-                });
-        }
-
-        updateTelemetry();
-        setInterval(updateTelemetry, 2000);
-    });
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('telemetry', (cfg) => ({
+                kwh: cfg.init.kwh, cost: cfg.init.total, power: cfg.init.power_kw, rate: cfg.init.rate, overstay: cfg.init.overstay_minutes,
+                time: '00:00:00', balance: 0, low: false,
+                init() { this.poll(); setInterval(() => this.poll(), 2000); },
+                async poll() {
+                    try {
+                        const d = await (await fetch(cfg.url, { headers: { Accept: 'application/json' } })).json();
+                        if (d.finished) { window.location.href = d.redirect; return; }
+                        this.kwh = d.energy_kwh; this.cost = d.total_cost; this.power = d.power_kw; this.rate = d.rate;
+                        this.time = d.formatted_time; this.balance = d.balance; this.low = d.low_balance; this.overstay = d.overstay_minutes;
+                    } catch (e) {}
+                },
+            }));
+        });
     </script>
+    @endpush
 </x-app-layout>

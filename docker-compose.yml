@@ -1,0 +1,77 @@
+services:
+  app:
+    build:
+      context: .
+      target: app
+    container_name: evcharge_app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: local
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-evchargehub_db}
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      PHP_CLI_SERVER_WORKERS: 4
+    ports:
+      - "8000:8000"
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Worker untuk QUEUE_CONNECTION=database
+  queue:
+    build:
+      context: .
+      target: app
+    container_name: evcharge_queue
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-evchargehub_db}
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+    command: php artisan queue:work --tries=3 --timeout=90
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.4
+    container_name: evcharge_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-evchargehub_db}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "3307:3306"   # 3307 di host supaya tidak bentrok dengan MySQL XAMPP/Laragon
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD:-secret}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: evcharge_pma
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+
+volumes:
+  db_data:
+  storage_data:

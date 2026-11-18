@@ -2,22 +2,32 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Driver\ChargingSessionController;
 use App\Models\Charger;
-use App\Models\ChargingSession;
 use App\Models\Location;
 use App\Models\Reservation;
-use App\Models\User;
 use App\Models\Vehicle;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
+/**
+ * Alur reservasi:
+ *   pending (ditahan maks. 3 jam) -> confirmed (ditahan sampai waktu selesai)
+ *   -> active (sesi charging berjalan) -> completed
+ *   cancel / expired membebaskan port kembali.
+ */
 class ReservationController extends Controller
 {
+    /** Lama port ditahan sebelum dikonfirmasi (jam). */
+    public const HOLD_HOURS = 3;
+
     public function index()
     {
-        $reservations = Reservation::with(['charger.location', 'vehicle'])
+        Reservation::expireStale();
+
+        $reservations = Reservation::with(['charger.location', 'vehicle', 'chargingSession'])
             ->where('user_id', auth()->id())
             ->latest('id_reservation')
             ->get();
@@ -27,312 +37,196 @@ class ReservationController extends Controller
 
     public function create($location, $charger)
     {
+        Reservation::expireStale();
+
         $locationModel = Location::findOrFail($location);
-        $chargerModel  = Charger::where('location_id', $locationModel->id_location)
-                                  ->findOrFail($charger);
+        $chargerModel = Charger::where('location_id', $locationModel->id_location)->findOrFail($charger);
+
+        if (! $locationModel->isOpen()) {
+            return redirect()->route('spklu.show', $locationModel->id_location)
+                ->withErrors(['error' => 'Stasiun sedang ditutup sementara.']);
+        }
+
+        if ($chargerModel->status !== 'available') {
+            return redirect()->route('spklu.show', $locationModel->id_location)
+                ->withErrors(['error' => 'Charger ini sedang tidak tersedia untuk dipesan.']);
+        }
 
         $vehicles = Vehicle::where('user_id', auth()->id())->get();
 
+        if ($vehicles->isEmpty()) {
+            return redirect()->route('cars.create')
+                ->with('info', 'Tambahkan kendaraan terlebih dahulu sebelum memesan slot.');
+        }
+
         return view('driver.reservations.create', [
             'location' => $locationModel,
-            'charger'  => $chargerModel,
+            'charger' => $chargerModel,
             'vehicles' => $vehicles,
+            'tariff' => $locationModel->currentTariff(),
+            'holdHours' => self::HOLD_HOURS,
         ]);
     }
 
     public function store(Request $request)
     {
-        if (!$request->filled('vehicle_id')) {
-            $firstVehicle = Vehicle::where('user_id', auth()->id())->first();
+        Reservation::expireStale();
 
-            if (!$firstVehicle) {
-                return back()->withErrors([
-                    'vehicle_id' => 'Anda belum memiliki kendaraan terdaftar. Silakan tambahkan kendaraan di menu Mobil Saya terlebih dahulu.'
-                ])->withInput();
-            }
-
-            $request->merge(['vehicle_id' => $firstVehicle->id_vehicle]);
-        }
+        $user = $request->user();
 
         $validated = $request->validate([
-            'charger_id'     => 'required|exists:chargers,id_charger',
-            'vehicle_id'     => 'required|exists:vehicles,id_vehicle',
-            'start_time'     => 'required|date|after_or_equal:now',
-            'duration_hours' => 'required|integer|min:1|max:24',
+            'charger_id' => ['required', 'exists:chargers,id_charger'],
+            'vehicle_id' => ['required', Rule::exists('vehicles', 'id_vehicle')->where('user_id', $user->id)],
+            'start_time' => ['required', 'date', 'after_or_equal:now', 'before_or_equal:+' . self::HOLD_HOURS . ' hours'],
+            'duration_hours' => ['required', 'integer', 'min:1', 'max:4'],
+        ], [
+            'vehicle_id.required' => 'Pilih kendaraan yang akan diisi dayanya.',
+            'start_time.after_or_equal' => 'Waktu mulai tidak boleh di masa lalu.',
+            'start_time.before_or_equal' => 'Waktu mulai maksimal ' . self::HOLD_HOURS . ' jam dari sekarang (batas penahanan slot).',
         ]);
 
-        $charger = Charger::findOrFail($validated['charger_id']);
+        $charger = Charger::with('location')->findOrFail($validated['charger_id']);
+        $vehicle = Vehicle::where('user_id', $user->id)->findOrFail($validated['vehicle_id']);
 
-        if ($charger->status !== 'available') {
-            return back()->withErrors(['charger_id' => 'Charger sedang tidak tersedia untuk dipesan.'])->withInput();
+        if (! $charger->location->isOpen()) {
+            return back()->withErrors(['error' => 'Stasiun sedang ditutup sementara.'])->withInput();
+        }
+
+        if (! $vehicle->isCompatibleWith($charger)) {
+            return back()->withErrors(['vehicle_id' => "Konektor {$vehicle->tipe_konektor} tidak cocok dengan charger {$charger->charger_type}."])->withInput();
+        }
+
+        if ($user->outstandingAmount() > 0) {
+            return redirect()->route('topup.index')
+                ->withErrors(['error' => 'Selesaikan tagihan tertunggak terlebih dahulu (top up saldo).']);
+        }
+
+        if (Reservation::where('user_id', $user->id)->holding()->exists()) {
+            return back()->withErrors(['error' => 'Anda masih memiliki reservasi aktif. Selesaikan atau batalkan dahulu sebelum memesan lagi.'])->withInput();
         }
 
         $startTime = Carbon::parse($validated['start_time']);
-        $endTime   = (clone $startTime)->addHours((int) $validated['duration_hours']);
+        $endTime = (clone $startTime)->addHours((int) $validated['duration_hours']);
 
-        $hasOverlap = Reservation::where('charger_id', $charger->id_charger)
-            ->whereIn('status', ['pending', 'confirmed', 'active'])
-            ->where(function ($query) use ($startTime, $endTime) {
-                $query->whereBetween('waktu_mulai', [$startTime, $endTime])
-                      ->orWhereBetween('waktu_selesai', [$startTime, $endTime])
-                      ->orWhere(function ($q) use ($startTime, $endTime) {
-                          $q->where('waktu_mulai', '<=', $startTime)
-                            ->where('waktu_selesai', '>=', $endTime);
-                      });
-            })
-            ->exists();
+        $reservation = DB::transaction(function () use ($charger, $vehicle, $user, $startTime, $endTime) {
+            $locked = Charger::whereKey($charger->id_charger)->lockForUpdate()->first();
 
-        if ($hasOverlap) {
-            return back()->withErrors(['start_time' => 'Slot waktu yang dipilih sudah dipesan pengguna lain.'])->withInput();
-        }
+            if (! $locked || $locked->status !== 'available') {
+                return null;
+            }
 
-        // Holding Slot diset MAX 3 JAM (180 MENIT)
-        $expiresAt = Carbon::now()->addHours(3);
-
-        $reservation = DB::transaction(function () use ($validated, $charger, $startTime, $endTime, $expiresAt) {
-            $res = Reservation::create([
-                'user_id'       => auth()->id(),
-                'charger_id'    => $charger->id_charger,
-                'vehicle_id'    => $validated['vehicle_id'],
-                'waktu_mulai'   => $startTime,
+            $created = Reservation::create([
+                'user_id' => $user->id,
+                'charger_id' => $locked->id_charger,
+                'vehicle_id' => $vehicle->id_vehicle,
+                'waktu_mulai' => $startTime,
                 'waktu_selesai' => $endTime,
-                'expires_at'    => $expiresAt,
-                'status'        => 'pending',
+                'expires_at' => now()->addHours(self::HOLD_HOURS),
+                'status' => 'pending',
             ]);
 
-            $charger->update(['status' => 'reserved']);
+            $locked->update(['status' => 'reserved']);
 
-            return $res;
+            return $created;
         });
 
+        if (! $reservation) {
+            return back()->withErrors(['error' => 'Maaf, charger baru saja dipesan pengguna lain.'])->withInput();
+        }
+
         return redirect()->route('reservations.show', $reservation->id_reservation)
-            ->with('success', 'Reservasi berhasil dibuat. Slot Anda ditahan selama maksimal 3 jam.');
+            ->with('success', 'Reservasi dibuat. Konfirmasi dalam ' . self::HOLD_HOURS . ' jam agar slot tetap milik Anda.');
     }
 
-    private function findUserReservation($id)
+    private function findUserReservation($id): Reservation
     {
-        return Reservation::where('user_id', auth()->id())
-            ->where('id_reservation', $id)
-            ->firstOrFail();
+        return Reservation::where('user_id', auth()->id())->where('id_reservation', $id)->firstOrFail();
     }
 
     public function show($id)
     {
-        $reservation = $this->findUserReservation($id);
-        $reservation->load(['charger.location', 'vehicle']);
+        Reservation::expireStale();
 
-        return view('driver.reservations.show', compact('reservation'));
+        $reservation = $this->findUserReservation($id);
+        $reservation->load(['charger.location', 'vehicle', 'chargingSession']);
+
+        return view('driver.reservations.show', [
+            'reservation' => $reservation,
+            'tariff' => $reservation->charger?->location?->currentTariff(),
+            'minBalance' => ChargingSessionController::MIN_START_BALANCE,
+        ]);
     }
 
-    /**
-     * PERBAIKAN SOLUSI 1: Hitung 3 jam langsung dari created_at
-     */
     public function getTimer($id)
     {
+        Reservation::expireStale();
+
         $reservation = $this->findUserReservation($id);
 
-        // Paksa kalkulasi 3 jam daricreated_at
-        $createdAt = Carbon::parse($reservation->created_at);
-        $expiresAt = (clone $createdAt)->addHours(3);
-
-        $remainingSeconds = max(0, Carbon::now()->diffInSeconds($expiresAt, false));
-        $isExpired = Carbon::now()->greaterThan($expiresAt);
+        $remaining = $reservation->expires_at
+            ? max(0, (int) now()->diffInSeconds($reservation->expires_at, false))
+            : 0;
 
         return response()->json([
-            'status'            => $isExpired && $reservation->status === 'pending' ? 'expired' : $reservation->status,
-            'expires_at'        => $expiresAt->toIso8601String(),
-            'remaining'         => $remainingSeconds,
-            'remaining_seconds' => $remainingSeconds,
-            'is_expired'        => $isExpired && $reservation->status === 'pending',
+            'status' => $reservation->status,
+            'expires_at' => $reservation->expires_at?->toIso8601String(),
+            'remaining_seconds' => $remaining,
+            'is_expired' => in_array($reservation->status, ['expired', 'cancelled'], true),
         ]);
     }
 
     public function confirm($id)
     {
+        Reservation::expireStale();
+
         $reservation = $this->findUserReservation($id);
 
-        if ($reservation->status === 'pending') {
-            // Pengecekan 3 jam dari created_at
-            $expiresAt = Carbon::parse($reservation->created_at)->addHours(3);
-
-            if (Carbon::now()->greaterThan($expiresAt)) {
-                $reservation->update(['status' => 'expired']);
-                if ($reservation->charger) {
-                    $reservation->charger->update(['status' => 'available']);
-                }
-                return back()->withErrors(['error' => 'Waktu konfirmasi pembayaran telah kadaluarsa.']);
-            }
-
-            $reservation->update(['status' => 'confirmed']);
-            return redirect()->route('reservations.show', $reservation->id_reservation)
-                ->with('success', 'Reservasi berhasil dikonfirmasi.');
+        if ($reservation->status !== 'pending') {
+            return back()->withErrors(['error' => 'Reservasi ini tidak dapat dikonfirmasi.']);
         }
 
-        return back()->withErrors(['error' => 'Reservasi tidak dapat dikonfirmasi.']);
+        if (now()->greaterThanOrEqualTo($reservation->waktu_selesai)) {
+            $reservation->update(['status' => 'expired']);
+            $reservation->charger?->syncReservedState();
+
+            return redirect()->route('reservations.show', $reservation->id_reservation)
+                ->withErrors(['error' => 'Jadwal reservasi sudah terlewat.']);
+        }
+
+        if ((float) auth()->user()->balance < ChargingSessionController::MIN_START_BALANCE) {
+            return redirect()->route('topup.index')->withErrors([
+                'error' => 'Saldo minimal Rp ' . number_format(ChargingSessionController::MIN_START_BALANCE, 0, ',', '.') . ' dibutuhkan untuk mengonfirmasi reservasi. Silakan top up.',
+            ]);
+        }
+
+        // Setelah dikonfirmasi, slot ditahan sampai akhir jadwal reservasi.
+        $reservation->update(['status' => 'confirmed', 'expires_at' => $reservation->waktu_selesai]);
+
+        return redirect()->route('reservations.show', $reservation->id_reservation)
+            ->with('success', 'Reservasi terkonfirmasi. Scan QR di charger untuk memulai pengisian.');
     }
 
     public function cancel($id)
     {
         $reservation = $this->findUserReservation($id);
 
-        if (in_array($reservation->status, ['pending', 'confirmed'])) {
-            DB::transaction(function () use ($reservation) {
-                $reservation->update(['status' => 'cancelled']);
-
-                if ($reservation->charger) {
-                    $reservation->charger->update(['status' => 'available']);
-                }
-            });
-
-            return redirect()->route('reservations.index')
-                ->with('success', 'Reservasi berhasil dibatalkan.');
+        if (! in_array($reservation->status, ['pending', 'confirmed'], true)) {
+            return back()->withErrors(['error' => 'Reservasi ini tidak dapat dibatalkan.']);
         }
 
-        return back()->withErrors(['error' => 'Reservasi ini tidak dapat dibatalkan.']);
-    }
-
-    public function getSlotStatuses($location_id)
-    {
-        Reservation::where('status', 'pending')
-            ->where('created_at', '<', now()->subHours(3))
-            ->get()
-            ->each(function ($res) {
-                $res->update(['status' => 'expired']);
-                if ($res->charger) {
-                    $res->charger->update(['status' => 'available']);
-                }
-            });
-
-        $chargers = Charger::where('location_id', $location_id)
-            ->withCount(['reservations as active_reservations_count' => function ($query) {
-                $query->whereIn('status', ['pending', 'confirmed', 'active'])
-                      ->where('created_at', '>', now()->subHours(3));
-            }])
-            ->get();
-
-        return response()->json($chargers);
-    }
-
-    /**
-     * Stop Charging: Hitung Tagihan, Cek Saldo & Auto-Debit Pemotongan Saldo
-     */
-    public function stopCharging($id)
-    {
-        $reservation = $this->findUserReservation($id);
-        /** @var \App\Models\User $user */
-        $user = auth()->user();
-
-        // 1. Kalkulasi Durasi & Tagihan Biaya Berbasis Detik/Menit Minimal
-        $startTime = Carbon::parse($reservation->waktu_mulai);
-        $endTime   = now();
-        $secondsElapsed = max(5, $startTime->diffInSeconds($endTime));
-        $durationMinutes = max(1, ceil($secondsElapsed / 60));
-
-        $powerKw = $reservation->charger->power_kw ?? 22;
-        $kwhDelivered = round(($powerKw / 3600) * $secondsElapsed, 2);
-        if ($kwhDelivered <= 0) {
-            $kwhDelivered = 0.05;
-        }
-
-        // Rumus Perkalian Biaya
-        $tarifPerKwh = 2466;
-        $totalCost = round($kwhDelivered * $tarifPerKwh);
-
-        // 2. PENGECEKAN KECUKUPAN SALDO
-        if ($user->balance < $totalCost) {
-            $kekurangan = $totalCost - $user->balance;
-            return redirect()->route('topup.index')
-                ->with('error', 'Saldo Anda kurang (Rp ' . number_format($kekurangan, 0, ',', '.') . ') untuk membayar pengisian ini. Silakan Top Up terlebih dahulu.');
-        }
-
-        // 3. JIKA SALDO CUKUP: Eksekusi Auto-Debit dan Update Status
-        $targetId = DB::transaction(function () use ($reservation, $user, $totalCost, $endTime, $durationMinutes, $kwhDelivered) {
-            // Potong Saldo Akun User
-            DB::table('users')->where('id', $user->id)->decrement('balance', $totalCost);
-
-            // Update status reservasi & charger
-            $reservation->update([
-                'status'     => 'completed',
-                'stopped_at' => $endTime,
-            ]);
-
-            if ($reservation->charger) {
-                $reservation->charger->update(['status' => 'available']);
-            }
-
-            // Buat Record Sesi Pengisian
-            try {
-                $columns = Schema::getColumnListing('charging_sessions');
-                $sessionData = [];
-
-                if (in_array('user_id', $columns)) {
-                    $sessionData['user_id'] = $reservation->user_id;
-                }
-                
-                if (in_array('charger_id', $columns)) {
-                    $sessionData['charger_id'] = $reservation->charger_id;
-                } elseif (in_array('id_charger', $columns)) {
-                    $sessionData['id_charger'] = $reservation->charger_id;
-                }
-
-                if (in_array('vehicle_id', $columns)) {
-                    $sessionData['vehicle_id'] = $reservation->vehicle_id;
-                } elseif (in_array('id_vehicle', $columns)) {
-                    $sessionData['id_vehicle'] = $reservation->vehicle_id;
-                }
-
-                if (in_array('reservation_id', $columns)) {
-                    $sessionData['reservation_id'] = $reservation->id_reservation;
-                } elseif (in_array('id_reservation', $columns)) {
-                    $sessionData['id_reservation'] = $reservation->id_reservation;
-                }
-
-                if (in_array('start_time', $columns)) {
-                    $sessionData['start_time'] = $reservation->waktu_mulai;
-                } elseif (in_array('waktu_mulai', $columns)) {
-                    $sessionData['waktu_mulai'] = $reservation->waktu_mulai;
-                }
-
-                if (in_array('end_time', $columns)) {
-                    $sessionData['end_time'] = $endTime;
-                } elseif (in_array('waktu_selesai', $columns)) {
-                    $sessionData['waktu_selesai'] = $endTime;
-                }
-
-                if (in_array('energy_kwh', $columns)) {
-                    $sessionData['energy_kwh'] = $kwhDelivered;
-                } elseif (in_array('energy_consumed', $columns)) {
-                    $sessionData['energy_consumed'] = $kwhDelivered;
-                }
-
-                if (in_array('duration_minutes', $columns)) {
-                    $sessionData['duration_minutes'] = $durationMinutes;
-                }
-
-                if (in_array('total_cost', $columns)) {
-                    $sessionData['total_cost'] = $totalCost;
-                }
-
-                if (in_array('status', $columns)) {
-                    $sessionData['status'] = 'completed';
-                }
-
-                if (!empty($sessionData)) {
-                    $session = ChargingSession::create($sessionData);
-                    return $session->getKey();
-                }
-            } catch (\Exception $e) {
-                // Fallback jika penulisan charging_sessions error
-            }
-
-            return $reservation->id_reservation;
+        DB::transaction(function () use ($reservation) {
+            $reservation->update(['status' => 'cancelled']);
+            $reservation->charger?->syncReservedState();
         });
 
-        // 4. Sinkronkan Session Auth User
-        auth()->setUser(User::find($user->id));
+        return redirect()->route('reservations.index')->with('success', 'Reservasi berhasil dibatalkan.');
+    }
 
-        // 5. Direct Langsung ke Struk Digital Resmi
-        return redirect()->route('driver.charging.receipt', $targetId)
-            ->with('success', 'Sesi pengisian daya selesai dan pembayaran berhasil dipotong dari saldo.');
+    /** Status terkini seluruh charger pada satu lokasi (JSON). */
+    public function getSlotStatuses($location_id)
+    {
+        Reservation::expireStale();
+
+        return response()->json(Charger::where('location_id', $location_id)->get(['id_charger', 'charger_type', 'power_kw', 'status']));
     }
 }

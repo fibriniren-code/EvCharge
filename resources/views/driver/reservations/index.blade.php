@@ -1,105 +1,44 @@
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-100 leading-tight">
-            Riwayat & Daftar Reservasi SPKLU
-        </h2>
-    </x-slot>
+<x-app-layout title="Reservasi">
+    @php
+        $groups = [
+            'active' => ['pending', 'confirmed', 'active'],
+            'done' => ['completed'],
+            'failed' => ['cancelled', 'expired'],
+        ];
+        $counts = collect($groups)->map(fn ($s) => $reservations->whereIn('status', $s)->count());
+    @endphp
 
-    <div class="py-6">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            
-            @if (session('success'))
-                <div class="mb-4 p-4 bg-emerald-600/20 border border-emerald-500 text-emerald-300 rounded-lg">
-                    {{ session('success') }}
-                </div>
-            @endif
+    <x-page-header eyebrow="Pemesanan" title="Reservasi saya" subtitle="Pantau slot yang Anda tahan dan riwayat pemesanan.">
+        <x-slot name="actions"><a href="{{ route('spklu.index') }}" class="btn-primary"><x-icon name="plus" class="h-4 w-4" />Reservasi baru</a></x-slot>
+    </x-page-header>
 
-            <div class="bg-slate-900 border border-slate-800 shadow-xl sm:rounded-lg p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-bold text-slate-200">Daftar Reservasi Anda</h3>
-                    <a href="{{ route('spklu.index') }}" class="btn btn-primary btn-sm">
-                        + Cari SPKLU & Buat Reservasi
-                    </a>
-                </div>
+    <div x-data="{ tab: 'all' }">
+        <div class="reveal mb-5 flex flex-wrap gap-2" style="--i:1">
+            @foreach (['all' => ['Semua', $reservations->count()], 'active' => ['Aktif', $counts['active']], 'done' => ['Selesai', $counts['done']], 'failed' => ['Batal / Kedaluwarsa', $counts['failed']]] as $key => [$label, $n])
+                <button type="button" class="chip" :class="tab === '{{ $key }}' && 'chip-active'" @click="tab = '{{ $key }}'">{{ $label }} <span class="rounded-full bg-white/10 px-1.5 text-[10px]">{{ $n }}</span></button>
+            @endforeach
+        </div>
 
-                @if ($reservations->isEmpty())
-                    <div class="text-center py-12 text-slate-400">
-                        <p class="text-base">Belum ada riwayat reservasi.</p>
-                        <a href="{{ route('spklu.index') }}" class="text-blue-400 hover:underline mt-2 inline-block">
-                            Temukan lokasi SPKLU terdekat
-                        </a>
+        <div class="space-y-4">
+            @forelse ($reservations as $r)
+                @php
+                    $group = collect($groups)->search(fn ($s) => in_array($r->status, $s, true));
+                    $loc = $r->charger?->location;
+                @endphp
+                <a href="{{ route('reservations.show', $r->id_reservation) }}" x-show="tab === 'all' || tab === '{{ $group }}'"
+                   x-transition:enter="transition duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+                   class="card card-hover reveal group flex flex-wrap items-center gap-4 p-5" style="--i: {{ min($loop->index + 1, 8) }}">
+                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ $group === 'active' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/5 text-slate-500' }}"><x-icon name="calendar" class="h-6 w-6" /></span>
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate font-bold text-white">{{ $loc->nama_lokasi ?? 'SPKLU' }}</p>
+                        <p class="mt-0.5 text-xs text-slate-500">#{{ $r->id_reservation }} · Charger #{{ $r->charger_id }} · {{ $r->waktu_mulai->format('d M Y, H:i') }} – {{ $r->waktu_selesai->format('H:i') }}</p>
                     </div>
-                @else
-                    <div class="table-responsive">
-                        <table class="table table-dark table-hover align-middle mb-0">
-                            <thead>
-                                <tr class="text-slate-400 border-b border-slate-800">
-                                    <th># ID</th>
-                                    <th>Lokasi SPKLU</th>
-                                    <th>Charger / Daya</th>
-                                    <th>Kendaraan</th>
-                                    <th>Waktu Mulai</th>
-                                    <th>Status</th>
-                                    <th class="text-end">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($reservations as $reservation)
-                                    <tr class="border-b border-slate-800/50">
-                                        <td class="font-mono text-sm text-slate-400">
-                                            #{{ $reservation->id_reservation ?? $reservation->id }}
-                                        </td>
-                                        <td>
-                                            <div class="fw-bold text-slate-200">
-                                                {{ $reservation->charger->location->name ?? $reservation->charger->location->location_name ?? 'Lokasi SPKLU' }}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-slate-800 text-slate-300 border border-slate-700">
-                                                {{ $reservation->charger->type ?? $reservation->charger->charger_type ?? 'AC/DC' }} 
-                                                ({{ $reservation->charger->power_kw ?? $reservation->charger->power ?? '-' }} kW)
-                                            </span>
-                                        </td>
-                                        <td class="text-slate-300">
-                                            {{ $reservation->vehicle->brand ?? '' }} {{ $reservation->vehicle->model ?? '-' }}
-                                        </td>
-                                        <td class="text-slate-300 text-sm">
-                                            {{ \Carbon\Carbon::parse($reservation->waktu_mulai ?? $reservation->start_time)->format('d M Y, H:i') }}
-                                        </td>
-                                        <td>
-                                            @switch($reservation->status)
-                                                @case('pending')
-                                                    <span class="badge bg-warning text-dark">Pending</span>
-                                                    @break
-                                                @case('confirmed')
-                                                    <span class="badge bg-success">Dikonfirmasi</span>
-                                                    @break
-                                                @case('completed')
-                                                    <span class="badge bg-info text-dark">Selesai</span>
-                                                    @break
-                                                @case('cancelled')
-                                                    <span class="badge bg-danger">Dibatalkan</span>
-                                                    @break
-                                                @case('expired')
-                                                    <span class="badge bg-secondary">Expired</span>
-                                                    @break
-                                                @default
-                                                    <span class="badge bg-secondary">{{ ucfirst($reservation->status) }}</span>
-                                            @endswitch
-                                        </td>
-                                        <td class="text-end">
-                                            <a href="{{ route('reservations.show', $reservation->id_reservation ?? $reservation->id) }}" class="btn btn-outline-info btn-sm">
-                                                Detail
-                                            </a>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
-            </div>
-
+                    <x-status-badge :status="$r->status" type="reservation" />
+                    <x-icon name="chevron-right" class="h-5 w-5 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-slate-300" />
+                </a>
+            @empty
+                <div class="card"><x-empty icon="calendar" title="Belum ada reservasi" text="Pesan slot di SPKLU favorit Anda agar tidak kehabisan."><a href="{{ route('spklu.index') }}" class="btn-primary btn-sm">Cari SPKLU</a></x-empty></div>
+            @endforelse
         </div>
     </div>
 </x-app-layout>

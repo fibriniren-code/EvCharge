@@ -50,6 +50,15 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // Akun yang dinonaktifkan admin tidak boleh masuk
+        if (Auth::user()->status !== 'active') {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'Akun Anda dinonaktifkan. Hubungi administrator.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

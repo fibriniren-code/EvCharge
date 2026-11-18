@@ -5,151 +5,164 @@ namespace App\Http\Controllers\Driver;
 use App\Http\Controllers\Controller;
 use App\Models\Charger;
 use App\Models\ChargingSession;
+use App\Models\Payment;
 use App\Models\Reservation;
-use App\Models\User;
-use Carbon\Carbon;
+use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ChargingSessionController extends Controller
 {
-    /**
-     * Mencari sesi charging milik pengguna yang sedang login.
-     * Pencarian mendukung ID sesi maupun ID reservasi.
-     */
-    private function findUserSession($id)
+    /** Saldo minimum agar boleh mengonfirmasi reservasi / memulai charging (Rp). */
+    public const MIN_START_BALANCE = 20000;
+
+    private function findUserSession($id): ChargingSession
     {
-        return ChargingSession::where('user_id', auth()->id())
-            ->where(function ($query) use ($id) {
-                $query->where('id_session', $id)
-                    ->orWhere('id_reservation', $id);
-            })
-            ->firstOrFail();
+        return ChargingSession::where('user_id', auth()->id())->where('id_session', $id)->firstOrFail();
     }
 
-    /**
-     * Memproses QR Code atau ID Booking.
-     */
+    /** Pemeriksaan bersama sebelum charging boleh dimulai. Mengembalikan pesan error atau null. */
+    private function startBlocker(Charger $charger): ?string
+    {
+        $user = auth()->user();
+
+        if (! $charger->location?->isOpen()) {
+            return 'Stasiun sedang ditutup sementara.';
+        }
+
+        return match ($charger->status) {
+            'faulted' => 'Port charger sedang mengalami gangguan teknis.',
+            'unavailable' => 'Port charger sedang dinonaktifkan / dalam pemeliharaan.',
+            'occupied' => 'Port charger sedang digunakan pengemudi lain.',
+            default => match (true) {
+                $user->outstandingAmount() > 0 => 'Ada tagihan tertunggak. Top up saldo terlebih dahulu.',
+                (float) $user->balance < self::MIN_START_BALANCE => 'Saldo minimal Rp ' . number_format(self::MIN_START_BALANCE, 0, ',', '.') . ' dibutuhkan untuk memulai charging.',
+                ChargingSession::running()->where('user_id', $user->id)->exists() => 'Anda masih memiliki sesi charging yang berjalan.',
+                default => null,
+            },
+        };
+    }
+
+    public function scan(Request $request)
+    {
+        Reservation::expireStale();
+
+        $reservations = Reservation::with(['charger.location', 'vehicle'])
+            ->where('user_id', auth()->id())
+            ->holding()
+            ->latest('id_reservation')
+            ->get();
+
+        return view('driver.charging.scan', [
+            'reservations' => $reservations,
+            'prefill' => $request->query('booking_id'),
+        ]);
+    }
+
+    /** Verifikasi QR charger atau ID booking. */
     public function processScan(Request $request)
     {
+        Reservation::expireStale();
+
         $request->validate([
-            'qr_code' => 'nullable|string',
-            'booking_id' => 'nullable|string',
+            'qr_code' => 'nullable|string|max:255',
+            'booking_id' => 'nullable|string|max:50',
         ]);
 
-        if (!$request->qr_code && !$request->booking_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Silakan scan QR Code atau masukkan ID Booking / Reservasi Anda.'
-            ], 422);
+        if (! $request->filled('qr_code') && ! $request->filled('booking_id')) {
+            return response()->json(['success' => false, 'message' => 'Scan QR Code atau masukkan ID Booking Anda.'], 422);
         }
 
         $userId = auth()->id();
-        $reservation = null;
-        $charger = null;
+        $statuses = ['pending', 'confirmed', 'active'];
 
-        if ($request->booking_id) {
-            $reservation = Reservation::where('user_id', $userId)
-                ->where('id_reservation', $request->booking_id)
-                ->whereIn('status', ['confirmed', 'active', 'pending'])
-                ->first();
+        if ($request->filled('booking_id')) {
+            $bookingId = (int) preg_replace('/\D/', '', $request->booking_id);
 
-            if (!$reservation) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'ID Booking tidak ditemukan atau statusnya sudah tidak aktif.'
-                ], 404);
+            $reservation = Reservation::with('charger.location')
+                ->where('user_id', $userId)->where('id_reservation', $bookingId)->whereIn('status', $statuses)->first();
+
+            if (! $reservation) {
+                return response()->json(['success' => false, 'message' => 'ID Booking tidak ditemukan atau sudah tidak aktif.'], 404);
+            }
+        } else {
+            // Ambil angka terakhir dari isi QR, mis. "CHG-VOLTRON-02" -> 2
+            preg_match_all('/\d+/', (string) $request->qr_code, $m);
+            $chargerId = (int) end($m[0]);
+
+            $charger = $chargerId ? Charger::with('location')->find($chargerId) : null;
+
+            if (! $charger) {
+                return response()->json(['success' => false, 'message' => 'Mesin charger tidak ditemukan.'], 404);
             }
 
-            $charger = Charger::where('id_charger', $reservation->charger_id)->first();
-        } elseif ($request->qr_code) {
-            $qrInput = trim($request->qr_code);
+            $reservation = Reservation::with('charger.location')
+                ->where('user_id', $userId)->where('charger_id', $charger->id_charger)->whereIn('status', $statuses)
+                ->latest('id_reservation')->first();
 
-            // Ekstrak angka saja dari string (misal 'CHG-VOLTRON-02' -> '2')
-            $numericId = preg_replace('/[^0-9]/', '', $qrInput);
-
-            // Query HANYA menggunakan kolom 'id_charger' yang terdaftar di schema DB
-            $charger = Charger::where('id_charger', $qrInput)
-                ->when($numericId, function ($q) use ($numericId) {
-                    return $q->orWhere('id_charger', $numericId);
-                })
-                ->first();
-
-            if (!$charger) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Mesin charger tidak ditemukan.'
-                ], 404);
-            }
-
-            $reservation = Reservation::where('user_id', $userId)
-                ->where('charger_id', $charger->id_charger)
-                ->whereIn('status', ['confirmed', 'active', 'pending'])
-                ->latest('id_reservation')
-                ->first();
-
-            if (!$reservation) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda tidak memiliki reservasi aktif pada mesin charger ini.'
-                ], 400);
+            if (! $reservation) {
+                return response()->json(['success' => false, 'message' => 'Anda tidak memiliki reservasi aktif pada charger ini.'], 400);
             }
         }
 
-        if ($charger && in_array(strtolower($charger->status), ['faulted', 'error'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Port charger sedang mengalami gangguan teknis.'
-            ], 422);
+        $charger = $reservation->charger;
+
+        // Sesi sudah berjalan: langsung arahkan ke monitoring.
+        if ($reservation->status === 'active') {
+            $running = ChargingSession::running()->where('id_reservation', $reservation->id_reservation)->first();
+            if ($running) {
+                return response()->json([
+                    'success' => true,
+                    'already_running' => true,
+                    'redirect' => route('driver.charging.monitor', $running->id_session),
+                ]);
+            }
         }
 
-        if ($charger && in_array(strtolower($charger->status), ['unavailable', 'maintenance'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Port charger sedang dalam pemeliharaan.'
-            ], 422);
+        if ($reservation->status === 'pending') {
+            return response()->json(['success' => false, 'message' => 'Konfirmasi reservasi Anda terlebih dahulu sebelum memulai charging.'], 422);
         }
 
-        if ($charger && strtolower($charger->status) === 'occupied') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Port charger sedang digunakan oleh pengemudi lain.'
-            ], 422);
+        if ($error = $this->startBlocker($charger)) {
+            return response()->json(['success' => false, 'message' => $error], 422);
         }
 
         return response()->json([
             'success' => true,
-            'charger_id' => $charger->id_charger,
             'reservation_id' => $reservation->id_reservation,
+            'charger_label' => 'Charger #' . $charger->id_charger . ' · ' . $charger->charger_type,
+            'location' => $charger->location?->nama_lokasi,
+            'power_kw' => (float) $charger->power_kw,
         ]);
     }
 
-    /**
-     * Memulai sesi charging.
-     */
     public function startSession(Request $request)
     {
         $request->validate([
             'reservation_id' => 'required|exists:reservations,id_reservation',
-            'charging_type' => 'required|in:full,kwh,nominal',
-            'target_value' => 'nullable|numeric|min:1',
+            'charging_type' => 'nullable|in:full,kwh,nominal',
         ]);
 
-        $reservation = Reservation::where('user_id', auth()->id())
-            ->findOrFail($request->reservation_id);
+        $reservation = Reservation::where('user_id', auth()->id())->findOrFail($request->reservation_id);
 
-        return DB::transaction(function () use ($reservation) {
-            $charger = Charger::where('id_charger', $reservation->charger_id)->firstOrFail();
+        $session = DB::transaction(function () use ($reservation, &$error) {
+            $reservation = Reservation::whereKey($reservation->id_reservation)->lockForUpdate()->first();
+            $charger = Charger::with('location')->whereKey($reservation->charger_id)->lockForUpdate()->firstOrFail();
 
-            $charger->update([
-                'status' => 'occupied'
-            ]);
+            if ($reservation->status !== 'confirmed') {
+                $error = 'Reservasi belum dikonfirmasi atau sudah tidak aktif.';
 
-            $reservation->update([
-                'status' => 'active'
-            ]);
+                return null;
+            }
 
-            $session = ChargingSession::create([
+            if ($error = $this->startBlocker($charger)) {
+                return null;
+            }
+
+            $charger->update(['status' => 'occupied']);
+            $reservation->update(['status' => 'active']);
+
+            return ChargingSession::create([
                 'user_id' => $reservation->user_id,
                 'id_charger' => $reservation->charger_id,
                 'id_reservation' => $reservation->id_reservation,
@@ -158,183 +171,117 @@ class ChargingSessionController extends Controller
                 'estimasi_biaya' => 0,
                 'status' => 'running',
             ]);
-
-            return redirect()
-                ->route('driver.charging.monitor', $session->id_session)
-                ->with('success', 'Pengisian daya berhasil dimulai.');
         });
+
+        if (! $session) {
+            return redirect()->route('driver.scan')->withErrors(['error' => $error ?? 'Charging tidak dapat dimulai.']);
+        }
+
+        return redirect()->route('driver.charging.monitor', $session->id_session)
+            ->with('success', 'Pengisian daya dimulai. Selamat mengisi!');
     }
 
-    /**
-     * Menampilkan halaman monitoring charging.
-     */
     public function monitorSession($id)
     {
         $session = $this->findUserSession($id);
 
-        $session->load([
-            'charger.location',
-            'reservation.vehicle',
-        ]);
+        if ($session->status !== 'running') {
+            return redirect()->route('driver.charging.receipt', $session->id_session);
+        }
 
-        return view('driver.charging.show', compact('session'));
+        $session->load(['charger.location', 'reservation.vehicle']);
+
+        return view('driver.charging.show', [
+            'session' => $session,
+            'tariff' => $session->charger->location?->currentTariff(),
+            'bill' => $session->computeBill(),
+        ]);
     }
 
-    /**
-     * Telemetry pengisian daya.
-     */
     public function getTelemetry($id)
     {
         $session = $this->findUserSession($id);
+        $balance = (float) auth()->user()->balance;
 
         if ($session->status !== 'running') {
             return response()->json([
                 'status' => $session->status,
-                'energy_kwh' => $session->energi_kwh ?? $session->energy_kwh ?? 0,
-                'total_cost' => $session->estimasi_biaya ?? $session->total_cost ?? 0,
-                'duration' => $session->waktu_mulai && $session->waktu_selesai
-                    ? Carbon::parse($session->waktu_mulai)
-                        ->diffInMinutes(Carbon::parse($session->waktu_selesai))
-                    : 0,
+                'finished' => true,
+                'redirect' => route('driver.charging.receipt', $session->id_session),
             ]);
         }
 
-        $startTime = Carbon::parse($session->waktu_mulai);
-        $secondsElapsed = max(1, $startTime->diffInSeconds(now()));
+        $bill = $session->computeBill();
 
-        $session->loadMissing('charger');
+        $session->update(['energi_kwh' => $bill['kwh'], 'estimasi_biaya' => $bill['total']]);
 
-        $powerKw = $session->charger->power_kw ?? 22;
-        $kwhDelivered = round(($powerKw / 3600) * $secondsElapsed, 2);
-
-        $totalCost = round($kwhDelivered * 2466);
-
-        $session->update([
-            'energi_kwh' => $kwhDelivered,
-            'estimasi_biaya' => $totalCost,
-        ]);
+        $s = $bill['seconds'];
 
         return response()->json([
-            'status' => $session->status,
-            'energy_kwh' => $kwhDelivered,
-            'total_cost' => $totalCost,
-            'duration_seconds' => $secondsElapsed,
-            'formatted_time' => sprintf(
-                '%02d:%02d:%02d',
-                floor($secondsElapsed / 3600),
-                floor(($secondsElapsed % 3600) / 60),
-                $secondsElapsed % 60
-            ),
+            'status' => 'running',
+            'finished' => false,
+            'energy_kwh' => $bill['kwh'],
+            'total_cost' => $bill['total'],
+            'power_kw' => $bill['power_kw'],
+            'rate' => $bill['rate'],
+            'overstay_minutes' => $bill['overstay_minutes'],
+            'duration_seconds' => $s,
+            'formatted_time' => sprintf('%02d:%02d:%02d', intdiv($s, 3600), intdiv($s % 3600, 60), $s % 60),
+            'balance' => $balance,
+            'low_balance' => $bill['total'] >= $balance * 0.85,
         ]);
     }
 
-    /**
-     * Menghentikan charging dan memotong saldo.
-     */
     public function stopSession($id)
     {
         $session = $this->findUserSession($id);
 
-        if ($session->status !== 'running') {
-            return redirect()
-                ->route('driver.charging.receipt', $session->id_session)
-                ->with('info', 'Transaksi ini sudah selesai.');
+        $result = $session->settle('completed');
+
+        if ($result === null) {
+            return redirect()->route('driver.charging.receipt', $session->id_session)->with('info', 'Transaksi ini sudah selesai.');
         }
 
-        $session->load([
-            'charger',
-            'reservation'
-        ]);
+        $redirect = redirect()->route('driver.charging.receipt', $session->id_session)
+            ->with('success', 'Pengisian selesai. Pembayaran dipotong otomatis dari saldo.');
 
-        $endTime = now();
-        $startTime = Carbon::parse($session->waktu_mulai);
-
-        $secondsElapsed = max(5, $startTime->diffInSeconds($endTime));
-
-        $powerKw = $session->charger->power_kw ?? 22;
-
-        $kwhDelivered = round(($powerKw / 3600) * $secondsElapsed, 2);
-
-        if ($kwhDelivered <= 0) {
-            $kwhDelivered = 0.05;
+        if ($result['debt'] > 0) {
+            $redirect->with('error', 'Saldo kurang Rp ' . number_format($result['debt'], 0, ',', '.') . '. Tagihan tercatat dan akan dilunasi otomatis saat Anda top up.');
         }
 
-        $totalCost = round($kwhDelivered * 2466);
-
-        DB::transaction(function () use (
-            $session,
-            $totalCost,
-            $endTime,
-            $kwhDelivered
-        ) {
-            $lockedUser = User::where('id', auth()->id())
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            if ($lockedUser->balance < $totalCost) {
-                throw new \RuntimeException('Saldo tidak mencukupi.');
-            }
-
-            $lockedUser->decrement('balance', $totalCost);
-
-            $session->update([
-                'waktu_selesai' => $endTime,
-                'energi_kwh' => $kwhDelivered,
-                'estimasi_biaya' => $totalCost,
-                'status' => 'completed',
-            ]);
-
-            if ($session->charger) {
-                $session->charger->update([
-                    'status' => 'available'
-                ]);
-            }
-
-            if ($session->reservation) {
-                $session->reservation->update([
-                    'status' => 'completed'
-                ]);
-            }
-        });
-
-        return redirect()
-            ->route('driver.charging.receipt', $session->id_session)
-            ->with('success', 'Pengisian daya selesai dan pembayaran berhasil dipotong dari saldo.');
+        return $redirect;
     }
 
-    /**
-     * Menampilkan struk transaksi.
-     */
     public function showReceipt($id)
     {
-        $session = ChargingSession::with([
-            'charger.location',
-            'reservation.vehicle',
-        ])
-            ->where('user_id', auth()->id())
-            ->where(function ($query) use ($id) {
-                $query->where('id_session', $id)
-                    ->orWhere('id_reservation', $id);
-            })
-            ->firstOrFail();
+        $session = ChargingSession::with(['charger.location', 'reservation.vehicle'])
+            ->where('user_id', auth()->id())->where('id_session', $id)->firstOrFail();
 
-        return view('driver.charging.receipt', compact('session'));
+        if ($session->status === 'running') {
+            return redirect()->route('driver.charging.monitor', $session->id_session);
+        }
+
+        return view('driver.charging.receipt', [
+            'session' => $session,
+            'payments' => Payment::where('id_session', $session->id_session)->get(),
+            // Satu ulasan per sesi (bukan per lokasi).
+            'reviewExists' => Review::where('user_id', auth()->id())
+                ->where('id_session', $session->id_session)
+                ->exists(),
+        ]);
     }
 
-    /**
-     * Menampilkan riwayat transaksi pengguna.
-     */
     public function history()
     {
-        $transactions = ChargingSession::with([
-            'charger.location',
-            'reservation.vehicle',
-        ])
-            ->where('user_id', auth()->id())
-            ->where('status', 'completed')
-            ->orderByDesc('waktu_mulai')
-            ->paginate(10);
+        $base = ChargingSession::where('user_id', auth()->id())->whereIn('status', ['completed', 'interrupted']);
 
-        return view('driver.charging.history', compact('transactions'));
+        return view('driver.charging.history', [
+            'transactions' => (clone $base)->with(['charger.location', 'reservation.vehicle'])->orderByDesc('waktu_mulai')->paginate(10),
+            'summary' => [
+                'count' => (clone $base)->count(),
+                'kwh' => (float) (clone $base)->sum('energi_kwh'),
+                'spend' => (float) (clone $base)->sum('estimasi_biaya'),
+            ],
+        ]);
     }
 }

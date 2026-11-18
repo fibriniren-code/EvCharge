@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Location extends Model
 {
@@ -38,6 +39,11 @@ class Location extends Model
         return $this->hasMany(Tariff::class, 'id_location', 'id_location');
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'id_location', 'id_location');
+    }
+
     // Tarif yang sedang berlaku (periode_berlaku terbaru yang sudah lewat)
     public function currentTariff(): ?Tariff
     {
@@ -45,5 +51,48 @@ class Location extends Model
             ->where('periode_berlaku', '<=', now())
             ->latest('periode_berlaku')
             ->first();
+    }
+
+    public function isOpen(): bool
+    {
+        return $this->status === 'aktif';
+    }
+
+    // Kolom fasilitas disimpan sebagai string JSON, jadi dinormalkan menjadi array
+    public function getFasilitasListAttribute(): array
+    {
+        $value = $this->attributes['fasilitas'] ?? null;
+
+        for ($i = 0; $i < 2 && is_string($value); $i++) {
+            $decoded = json_decode($value, true);
+            if ($decoded === null) {
+                break;
+            }
+            $value = $decoded;
+        }
+
+        return is_array($value) ? array_values(array_filter($value, 'is_string')) : [];
+    }
+
+    // Tutup stasiun, lalu batalkan reservasi aktif di semua port.
+    // Mengembalikan jumlah reservasi yang dibatalkan.
+    public function close(): int
+    {
+        $cancelled = 0;
+
+        DB::transaction(function () use (&$cancelled) {
+            $this->update(['status' => 'tutup']);
+
+            foreach ($this->chargers as $charger) {
+                $cancelled += $charger->cancelActiveReservations();
+            }
+        });
+
+        return $cancelled;
+    }
+
+    public function open(): void
+    {
+        $this->update(['status' => 'aktif']);
     }
 }

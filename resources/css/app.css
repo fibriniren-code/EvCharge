@@ -1,3 +1,174 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* =====================================================================
+   EVCharge Design System
+   Dark-first · aksen emerald→cyan · kaca (glass) · animasi halus
+   ===================================================================== */
+
+@layer base {
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body { @apply min-h-screen bg-ink-950 font-sans text-slate-300 antialiased; }
+    ::selection { @apply bg-emerald-400/30 text-white; }
+    [x-cloak] { display: none !important; }
+    h1, h2, h3, h4 { @apply text-white; }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { @apply rounded-full border-2 border-transparent bg-ink-500/70 bg-clip-padding; }
+    ::-webkit-scrollbar-thumb:hover { @apply bg-ink-500; }
+
+    input[type='number']::-webkit-inner-spin-button,
+    input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type='number'] { -moz-appearance: textfield; }
+    select option { background-color: #0f1729; color: #e2e8f0; }
+    input[type='datetime-local'], input[type='date'] { color-scheme: dark; }
+}
+
+@layer components {
+    /* ---------- Permukaan ---------- */
+    .card { @apply rounded-2xl border border-white/[0.07] bg-ink-900/80 shadow-card; }
+    .card-pad { @apply p-5 sm:p-6; }
+    .card-hover { @apply transition duration-300 hover:-translate-y-0.5 hover:border-emerald-400/30 hover:shadow-glow; }
+    .glass { @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl; }
+    .card-head { @apply flex flex-wrap items-center justify-between gap-3 border-b border-white/5 px-5 py-4 sm:px-6; }
+    .divider { @apply h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent; }
+
+    /* ---------- Tipografi ---------- */
+    .eyebrow { @apply text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400; }
+    .text-gradient { @apply bg-gradient-to-r from-emerald-300 via-cyan-300 to-sky-300 bg-clip-text text-transparent; }
+    .muted { @apply text-sm text-slate-400; }
+
+    /* ---------- Tombol ---------- */
+    .btn { @apply relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold leading-none transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 active:scale-[.97] disabled:pointer-events-none disabled:opacity-50; }
+    .btn-primary { @apply btn bg-gradient-to-r from-emerald-400 to-cyan-400 text-ink-950 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-400/40 hover:brightness-110; }
+    .btn-secondary { @apply btn border border-white/10 bg-white/[0.05] text-slate-200 hover:border-white/20 hover:bg-white/10; }
+    .btn-ghost { @apply btn text-slate-300 hover:bg-white/[0.06] hover:text-white; }
+    .btn-danger { @apply btn bg-rose-500 text-white shadow-lg shadow-rose-500/20 hover:bg-rose-400; }
+    .btn-warn { @apply btn bg-amber-400 text-ink-950 hover:bg-amber-300; }
+    .btn-soft-danger { @apply btn border border-rose-400/25 bg-rose-400/10 text-rose-300 hover:bg-rose-400/20; }
+    .btn-soft-emerald { @apply btn border border-emerald-400/25 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20; }
+    .btn-sm { @apply rounded-lg px-3 py-2 text-xs; }
+    .btn-lg { @apply px-6 py-3.5 text-base; }
+    .btn-block { @apply w-full; }
+    .btn.is-loading { @apply pointer-events-none opacity-80; color: transparent !important; }
+    .btn.is-loading::after {
+        content: ''; position: absolute; width: 1.1rem; height: 1.1rem; border-radius: 9999px;
+        border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: spin 0.7s linear infinite;
+    }
+    .btn-primary.is-loading::after { border-color: rgba(5, 8, 16, 0.3); border-top-color: #050810; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---------- Form ---------- */
+    .label { @apply mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400; }
+    .input { @apply block w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 text-sm text-slate-100 transition duration-200 placeholder:text-slate-500 focus:border-emerald-400/60 focus:outline-none focus:ring-4 focus:ring-emerald-400/10 disabled:opacity-60; }
+    .input-icon { @apply pl-11; }
+    .input.is-invalid { @apply border-rose-400/60 ring-4 ring-rose-400/10; }
+    select.input {
+        appearance: none; padding-right: 2.5rem; background-repeat: no-repeat; background-position: right 0.9rem center; background-size: 1rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    }
+    textarea.input { @apply min-h-[6rem] resize-y; }
+    .field-error { @apply mt-1.5 text-xs font-medium text-rose-400; }
+    .checkbox { @apply h-4 w-4 rounded border-white/20 bg-ink-950 accent-emerald-400; }
+
+    /* Kartu pilihan (radio/checkbox bergaya kartu) */
+    .choice { @apply relative flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition duration-200 hover:border-white/25 hover:bg-white/[0.06]; }
+    .choice:has(input:checked) { @apply border-emerald-400/60 bg-emerald-400/[0.07] shadow-glow; }
+    .choice:has(input:disabled) { @apply cursor-not-allowed opacity-45; }
+
+    /* ---------- Badge & chip ---------- */
+    .badge { @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-none; }
+    .badge-emerald { @apply badge border-emerald-400/25 bg-emerald-400/10 text-emerald-300; }
+    .badge-amber { @apply badge border-amber-400/25 bg-amber-400/10 text-amber-300; }
+    .badge-rose { @apply badge border-rose-400/25 bg-rose-400/10 text-rose-300; }
+    .badge-sky { @apply badge border-sky-400/25 bg-sky-400/10 text-sky-300; }
+    .badge-violet { @apply badge border-violet-400/25 bg-violet-400/10 text-violet-300; }
+    .badge-slate { @apply badge border-white/10 bg-white/5 text-slate-300; }
+    .chip { @apply inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-slate-300 transition duration-200 hover:border-white/25 hover:text-white; }
+    .chip-active { @apply border-emerald-400/50 bg-emerald-400/15 text-emerald-300; }
+
+    /* ---------- Tabel ---------- */
+    .tbl { @apply w-full text-left text-sm; }
+    .tbl thead th { @apply whitespace-nowrap border-b border-white/5 bg-white/[0.02] px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500; }
+    .tbl tbody td { @apply border-b border-white/5 px-4 py-3.5 align-middle text-slate-300; }
+    .tbl tbody tr { @apply transition-colors hover:bg-white/[0.03]; }
+    .tbl tbody tr:last-child td { border-bottom: 0; }
+
+    /* ---------- Navigasi ---------- */
+    .nav-item { @apply relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-400 transition duration-200 hover:bg-white/[0.05] hover:text-white; }
+    .nav-item-active { @apply bg-gradient-to-r from-emerald-400/15 to-transparent text-white; }
+    .nav-item-active::before { content: ''; @apply absolute -left-3 top-2 bottom-2 w-1 rounded-full bg-gradient-to-b from-emerald-300 to-cyan-400 shadow-[0_0_14px_rgba(52,211,153,0.7)]; }
+
+    /* ---------- Animasi util ---------- */
+    .reveal { animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
+    .sr { opacity: 0; transform: translateY(22px); transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1); transition-delay: calc(var(--i, 0) * 90ms); }
+    .sr.is-visible { opacity: 1; transform: none; }
+    .skeleton { @apply relative overflow-hidden rounded-lg bg-white/5; }
+    .skeleton::after { content: ''; @apply absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent; animation: shimmer 1.4s infinite; }
+    .stripe-flow {
+        background-image: linear-gradient(45deg, rgba(255,255,255,.22) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.22) 50%, rgba(255,255,255,.22) 75%, transparent 75%);
+        background-size: 40px 40px; animation: flow 1s linear infinite;
+    }
+    .ring-pulse::before, .ring-pulse::after { content: ''; @apply absolute inset-0 rounded-full border border-emerald-400/40; animation: pulse-ring 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) infinite; }
+    .ring-pulse::after { animation-delay: 1.2s; }
+}
+
+/* ---------- Latar aurora & progress bar halaman ---------- */
+.aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.aurora::before {
+    content: ''; position: absolute; inset: 0; opacity: 0.5;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 44px 44px; mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%);
+}
+.aurora i { position: absolute; border-radius: 9999px; filter: blur(90px); opacity: 0.35; animation: float 14s ease-in-out infinite; }
+.page-progress { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 3px; width: 100%; transform-origin: left; transform: scaleX(0); opacity: 0; background: linear-gradient(90deg, #34d399, #22d3ee, #38bdf8); box-shadow: 0 0 12px rgba(52,211,153,.8); }
+.page-progress.run { opacity: 1; transform: scaleX(0.85); transition: transform 8s cubic-bezier(0.1, 0.8, 0.2, 1); }
+
+/* ---------- Keyframes (dipakai langsung oleh CSS di atas) ---------- */
+@keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@keyframes flow { from { background-position: 0 0; } to { background-position: 40px 0; } }
+@keyframes pulse-ring { 0% { transform: scale(.8); opacity: .7; } 100% { transform: scale(2.2); opacity: 0; } }
+@keyframes float { 0%, 100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(0,-18px,0); } }
+
+/* ---------- Toast ---------- */
+.toast-bar { animation: toast 5.2s linear forwards; transform-origin: left; }
+@keyframes toast { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ---------- Leaflet (tema gelap) ---------- */
+.leaflet-container { background: #0a0f1c; font-family: inherit; border-radius: inherit; }
+.map-tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #0f1729; color: #e2e8f0; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 20px 40px -10px rgba(0,0,0,.7); }
+.leaflet-popup-content-wrapper { border-radius: 1rem; }
+.leaflet-popup-content { margin: 14px 16px; font-size: 13px; }
+.leaflet-container a.leaflet-popup-close-button { color: #94a3b8; }
+.leaflet-control-zoom a { background: #0f1729 !important; color: #e2e8f0 !important; border-color: rgba(255,255,255,.1) !important; }
+.leaflet-control-attribution { background: rgba(5,8,16,.7) !important; color: #64748b !important; }
+.leaflet-control-attribution a { color: #94a3b8 !important; }
+.ev-pin-wrap, .ev-me-wrap { background: transparent; border: none; }
+.ev-pin { width: 36px; height: 36px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: linear-gradient(135deg, #34d399, #06b6d4); border: 3px solid #fff; box-shadow: 0 6px 16px rgba(0,0,0,.5), 0 0 18px rgba(52,211,153,.5); display: flex; align-items: center; justify-content: center; transition: transform .25s; }
+.ev-pin:hover { transform: rotate(-45deg) scale(1.12); }
+.ev-pin span { transform: rotate(45deg); font-size: 15px; line-height: 1; }
+.ev-pin.nearest { background: linear-gradient(135deg, #fbbf24, #f97316); box-shadow: 0 6px 16px rgba(0,0,0,.5), 0 0 22px rgba(251,191,36,.6); }
+.ev-pin.busy { background: linear-gradient(135deg, #94a3b8, #64748b); box-shadow: 0 6px 16px rgba(0,0,0,.5); }
+.ev-pin.closed { background: linear-gradient(135deg, #fb7185, #e11d48); }
+.ev-me { width: 18px; height: 18px; border-radius: 50%; background: #38bdf8; border: 3px solid #fff; animation: ev-pulse 2s infinite; }
+@keyframes ev-pulse { 0% { box-shadow: 0 0 0 0 rgba(56,189,248,.6); } 70% { box-shadow: 0 0 0 16px rgba(56,189,248,0); } 100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); } }
+
+/* ---------- Cetak struk ---------- */
+@media print {
+    .no-print { display: none !important; }
+    body, .aurora { background: #fff !important; }
+    .receipt, .receipt * { color: #111 !important; background: transparent !important; border-color: #ccc !important; box-shadow: none !important; text-shadow: none !important; }
+    main { padding: 0 !important; }
+    .lg\:pl-72 { padding-left: 0 !important; }
+}
+
+/* ---------- Aksesibilitas gerak ---------- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    .sr { opacity: 1; transform: none; }
+}
