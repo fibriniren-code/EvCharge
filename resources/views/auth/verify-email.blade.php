@@ -1,31 +1,20 @@
-<x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn\'t receive the email, we will gladly send you another.') }}
-    </div>
+<x-guest-layout title="Verifikasi email">
+    <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-300 ring-pulse relative"><x-icon name="mail" class="h-7 w-7" /></span>
+    <h1 class="mt-6 text-3xl font-extrabold tracking-tight">Verifikasi email Anda</h1>
+    <p class="mt-2 text-sm leading-relaxed text-slate-400">Kami telah mengirim tautan verifikasi ke email Anda. Klik tautan tersebut untuk mengaktifkan akun. Belum menerima? Kirim ulang di bawah ini.</p>
 
     @if (session('status') == 'verification-link-sent')
-        <div class="mb-4 font-medium text-sm text-green-600">
-            {{ __('A new verification link has been sent to the email address you provided during registration.') }}
-        </div>
+        <x-auth-session-status class="mt-6" status="Tautan verifikasi baru telah dikirim ke email Anda." />
     @endif
 
-    <div class="mt-4 flex items-center justify-between">
-        <form method="POST" action="{{ route('verification.send') }}">
+    <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+        <form method="POST" action="{{ route('verification.send') }}" class="flex-1">
             @csrf
-
-            <div>
-                <x-primary-button>
-                    {{ __('Resend Verification Email') }}
-                </x-primary-button>
-            </div>
+            <button type="submit" class="btn-primary btn-block">Kirim ulang email</button>
         </form>
-
         <form method="POST" action="{{ route('logout') }}">
             @csrf
-
-            <button type="submit" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                {{ __('Log Out') }}
-            </button>
+            <button type="submit" class="btn-secondary btn-block">Keluar</button>
         </form>
     </div>
 </x-guest-layout>

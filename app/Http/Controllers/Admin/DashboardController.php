@@ -5,59 +5,70 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Charger;
 use App\Models\ChargingSession;
+use App\Models\Location;
 use App\Models\Reservation;
-use Illuminate\Http\Request;
+use App\Models\Review;
+use App\Models\User;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // 1. Hitung statistik status charger secara real-time
-        $statusCounts = [
-            'available'   => Charger::where('status', 'available')->count(),
-            'occupied'    => Charger::where('status', 'occupied')->count(),
-            'faulted'     => Charger::where('status', 'faulted')->count(),
-            'unavailable' => Charger::where('status', 'unavailable')->count(),
-            'total'       => Charger::count(),
+        Reservation::expireStale();
+
+        $finished = ['completed', 'interrupted'];
+
+        $today = ChargingSession::whereIn('status', $finished)
+            ->where('waktu_selesai', '>=', now()->startOfDay());
+
+        $stats = [
+            'revenue_today' => (float) (clone $today)->sum('estimasi_biaya'),
+            'kwh_today' => (float) (clone $today)->sum('energi_kwh'),
+            'sessions_today' => (clone $today)->count(),
+            'active_sessions' => ChargingSession::running()->count(),
+            'active_reservations' => Reservation::holding()->count(),
+            'stations' => Location::count(),
+            'stations_open' => Location::where('status', 'aktif')->count(),
+            'drivers' => User::where('role', 'driver')->count(),
         ];
 
-        // 2. Ambil Sesi Pengisian Daya yang SEDANG AKTIF / BERJALAN
-        $activeSessions = ChargingSession::with(['user', 'charger'])
-            ->whereNotIn('status', ['completed', 'stopped', 'finished', 'done'])
-            ->latest()
-            ->get();
+        $raw = Charger::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $statusCounts = [
+            'available' => (int) ($raw['available'] ?? 0),
+            'reserved' => (int) ($raw['reserved'] ?? 0),
+            'occupied' => (int) ($raw['occupied'] ?? 0),
+            'faulted' => (int) ($raw['faulted'] ?? 0),
+            'unavailable' => (int) ($raw['unavailable'] ?? 0),
+        ];
+        $statusCounts['total'] = array_sum($statusCounts);
 
-        // 3. Ambil Daftar Reservasi / Booking untuk Monitoring
-        $activeReservations = Reservation::with(['user', 'charger'])
-            ->latest('id_reservation')
-            ->take(15)
-            ->get();
+        // Pendapatan 7 hari terakhir
+        $days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        $rows = ChargingSession::whereIn('status', $finished)
+            ->where('waktu_selesai', '>=', now()->subDays(6)->startOfDay())
+            ->get(['waktu_selesai', 'estimasi_biaya'])
+            ->groupBy(fn ($s) => $s->waktu_selesai->format('Y-m-d'));
 
-        // 4. Charger yang mengalami kendala teknis
-        $faultedChargers = Charger::where('status', 'faulted')->get();
-
-        // 5. TAMBAHAN: Ambil Riwayat Pengisian Daya yang SUDAH SELESAI
-        $completedSessions = ChargingSession::with(['user', 'charger'])
-            ->whereIn('status', ['completed', 'stopped', 'finished', 'done'])
-            ->latest()
-            ->take(10)
-            ->get();
-
-        // Fallback: Jika tabel ChargingSession belum ada data completed, ambil dari model Reservation
-        if ($completedSessions->isEmpty()) {
-            $completedSessions = Reservation::with(['user', 'charger'])
-                ->whereIn('status', ['completed', 'finished'])
-                ->latest('id_reservation')
-                ->take(10)
-                ->get();
+        $revenue7 = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $d = now()->subDays($i);
+            $revenue7[] = [
+                'label' => $days[$d->dayOfWeek],
+                'value' => (float) ($rows[$d->format('Y-m-d')] ?? collect())->sum('estimasi_biaya'),
+            ];
         }
 
-        return view('admin.dashboard', compact(
-            'statusCounts',
-            'activeSessions',
-            'activeReservations',
-            'faultedChargers',
-            'completedSessions'
-        ));
+        return view('admin.dashboard', [
+            'stats' => $stats,
+            'statusCounts' => $statusCounts,
+            'revenue7' => $revenue7,
+            'activeSessions' => ChargingSession::with(['user', 'charger.location'])->running()->latest('id_session')->get(),
+            'recentSessions' => ChargingSession::with(['user', 'charger.location'])->whereIn('status', $finished)->latest('id_session')->take(8)->get(),
+            'faultedChargers' => Charger::with('location')->where('status', 'faulted')->get(),
+            'reservations' => Reservation::with(['user', 'charger.location'])->latest('id_reservation')->take(8)->get(),
+            'avgAlat' => (float) Review::avg('rating_alat'),
+            'avgTempat' => (float) Review::avg('rating_tempat'),
+            'unreplied' => Review::whereNull('balasan_operator')->count(),
+        ]);
     }
 }

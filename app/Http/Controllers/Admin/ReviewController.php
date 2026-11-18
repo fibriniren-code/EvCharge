@@ -8,39 +8,43 @@ use Illuminate\Http\Request;
 
 class ReviewController extends Controller
 {
-    // Menampilkan seluruh ulasan pengguna
-    public function index()
+    public function index(Request $request)
     {
-        $avgEquipment = Review::avg('rating_alat') ?? 0;
-        $avgFacility = Review::avg('rating_tempat') ?? 0;
+        $filter = $request->query('filter', 'all');
 
         $reviews = Review::with(['user', 'location'])
-            ->latest('created_at')
-            ->paginate(10);
+            ->when($filter === 'unreplied', fn ($q) => $q->whereNull('balasan_operator'))
+            ->latest('id_review')
+            ->paginate(8)
+            ->withQueryString();
 
-        return view('admin.reviews.index', compact(
-            'reviews',
-            'avgEquipment',
-            'avgFacility'
-        ));
+        return view('admin.reviews.index', [
+            'reviews' => $reviews,
+            'filter' => $filter,
+            'avgAlat' => (float) Review::avg('rating_alat'),
+            'avgTempat' => (float) Review::avg('rating_tempat'),
+            'total' => Review::count(),
+            'unreplied' => Review::whereNull('balasan_operator')->count(),
+        ]);
     }
 
-    // Memberikan tanggapan terhadap ulasan
-    public function reply(Request $request, $id)
+    public function reply(Request $request, Review $review)
     {
-        $request->validate([
-            'admin_reply' => 'required|string|max:1000',
+        // Nama field "balasan" (sebelumnya "admin_reply"); sesuaikan bila form lamamu masih memakai nama lama
+        $data = $request->validate([
+            'balasan' => ['required', 'string', 'max:1000'],
         ]);
 
-        $review = Review::findOrFail($id);
+        $review->update(['balasan_operator' => $data['balasan']]);
 
-        $review->update([
-            'balasan_operator' => $request->admin_reply,
-        ]);
+        return back()->with('success', 'Tanggapan ulasan berhasil dikirim.');
+    }
 
-        return back()->with(
-            'success',
-            'Tanggapan ulasan berhasil dikirim.'
-        );
+    // Moderasi: hapus ulasan yang tidak pantas
+    public function destroy(Review $review)
+    {
+        $review->delete();
+
+        return back()->with('success', 'Ulasan dihapus.');
     }
 }

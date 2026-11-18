@@ -1,253 +1,38 @@
+<x-app-layout title="Beri Ulasan">
+    <x-page-header :back="route('spklu.show', $location->id_location)" backLabel="Detail stasiun" eyebrow="Ulasan" title="Bagaimana pengalaman Anda?" :subtitle="$location->nama_lokasi" />
 
-<x-app-layout>
-    <div class="min-h-screen py-10 px-4">
-        <div class="max-w-2xl mx-auto">
+    <form method="POST" action="{{ route('reviews.store', $location->id_location) }}" enctype="multipart/form-data" class="mx-auto max-w-2xl space-y-5">
+        @csrf
+        <input type="hidden" name="id_session" value="{{ old('id_session', $session->id_session) }}">
+        <x-input-error :messages="$errors->get('id_session')" />
 
-            <a href="{{ route('spklu.show', $location->id_location) }}"
-               class="inline-flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-6">
-                ← Kembali ke Detail SPKLU
-            </a>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-
-                <div class="bg-gradient-to-br from-blue-900/60 to-slate-900 p-7 text-center border-b border-slate-800">
-                    <div class="w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mx-auto mb-4 text-3xl">
-                        ⭐
-                    </div>
-
-                    <h1 class="text-2xl font-bold text-white">
-                        Berikan Review SPKLU
-                    </h1>
-
-                    <p class="text-slate-400 text-sm mt-2">
-                        Bagikan pengalaman charging kamu untuk membantu pengguna lainnya.
-                    </p>
-                </div>
-
-                <div class="p-6">
-
-                    <div class="bg-slate-800/70 rounded-2xl p-4 mb-6">
-                        <p class="text-xs text-slate-400 mb-1">Lokasi SPKLU</p>
-
-                        <h2 class="text-white font-bold text-lg">
-                            {{ $location->nama_lokasi }}
-                        </h2>
-
-                        <p class="text-slate-400 text-sm mt-1">
-                            {{ $location->alamat }}
-                        </p>
-                    </div>
-
-                    @if ($errors->any())
-                        <div class="bg-red-500/10 border border-red-500/30 text-red-300 rounded-xl p-4 mb-6">
-                            <p class="font-semibold mb-2">Periksa kembali isian kamu:</p>
-
-                            <ul class="list-disc pl-5 text-sm space-y-1">
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
-
-                    <form action="{{ route('reviews.store', $location->id_location) }}"
-                          method="POST"
-                          enctype="multipart/form-data"
-                          class="space-y-7">
-
-                        @csrf
-
-                        <!-- RATING ALAT -->
-                        <div>
-                            <h3 class="text-white font-bold text-lg mb-1">
-                                1. Penilaian Alat Charger
-                            </h3>
-
-                            <p class="text-slate-400 text-sm mb-4">
-                                Bagaimana kondisi dan kinerja alat charger yang kamu gunakan?
-                            </p>
-
-                            <label class="block text-sm text-slate-300 mb-2">
-                                Rating alat charger
-                            </label>
-
-                            <div class="star-rating flex gap-2"
-                                 data-rating-name="rating_alat">
-
-                                @for ($i = 1; $i <= 5; $i++)
-                                    <label class="cursor-pointer">
-                                        <input type="radio"
-                                               name="rating_alat"
-                                               value="{{ $i }}"
-                                               class="sr-only"
-                                               {{ old('rating_alat') == $i ? 'checked' : '' }}
-                                               required>
-
-                                        <span class="star text-4xl text-slate-600 transition-all duration-200">
-                                            ★
-                                        </span>
-                                    </label>
-                                @endfor
-
-                            </div>
-
-                            <p class="text-xs text-slate-500 mt-2">
-                                Pilih 1 sampai 5 bintang.
-                            </p>
-
-                            <label class="block text-sm text-slate-300 mt-5 mb-2">
-                                Ulasan alat charger
-                            </label>
-
-                            <textarea name="ulasan_alat"
-                                      rows="3"
-                                      maxlength="1000"
-                                      placeholder="Contoh: Charger berfungsi dengan baik dan proses pengisian berjalan lancar..."
-                                      class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-blue-500">{{ old('ulasan_alat') }}</textarea>
-                        </div>
-
-                        <div class="border-t border-slate-800"></div>
-
-                        <!-- RATING LOKASI -->
-                        <div>
-                            <h3 class="text-white font-bold text-lg mb-1">
-                                2. Penilaian Lokasi SPKLU
-                            </h3>
-
-                            <p class="text-slate-400 text-sm mb-4">
-                                Bagaimana pengalaman kamu dengan lokasi dan fasilitas SPKLU ini?
-                            </p>
-
-                            <label class="block text-sm text-slate-300 mb-2">
-                                Rating lokasi
-                            </label>
-
-                            <div class="star-rating flex gap-2"
-                                 data-rating-name="rating_tempat">
-
-                                @for ($i = 1; $i <= 5; $i++)
-                                    <label class="cursor-pointer">
-                                        <input type="radio"
-                                               name="rating_tempat"
-                                               value="{{ $i }}"
-                                               class="sr-only"
-                                               {{ old('rating_tempat') == $i ? 'checked' : '' }}
-                                               required>
-
-                                        <span class="star text-4xl text-slate-600 transition-all duration-200">
-                                            ★
-                                        </span>
-                                    </label>
-                                @endfor
-
-                            </div>
-
-                            <p class="text-xs text-slate-500 mt-2">
-                                Pilih 1 sampai 5 bintang.
-                            </p>
-
-                            <label class="block text-sm text-slate-300 mt-5 mb-2">
-                                Ulasan lokasi
-                            </label>
-
-                            <textarea name="ulasan_tempat"
-                                      rows="3"
-                                      maxlength="1000"
-                                      placeholder="Contoh: Lokasi mudah ditemukan, tempat bersih, dan fasilitas cukup memadai..."
-                                      class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:border-blue-500 focus:ring-blue-500">{{ old('ulasan_tempat') }}</textarea>
-                        </div>
-
-                        <div class="border-t border-slate-800"></div>
-
-                        <!-- FOTO LOKASI -->
-                        <div>
-                            <h3 class="text-white font-bold text-lg mb-2">
-                                3. Foto Lokasi (Opsional)
-                            </h3>
-
-                            <p class="text-slate-400 text-sm mb-3">
-                                Kamu bisa menambahkan foto kondisi lokasi SPKLU.
-                            </p>
-
-                            <input type="file"
-                                   name="foto_lokasi"
-                                   accept="image/png,image/jpeg,image/webp"
-                                   class="block w-full text-sm text-slate-400
-                                   file:mr-4 file:py-2 file:px-4
-                                   file:rounded-lg file:border-0
-                                   file:bg-blue-600 file:text-white
-                                   hover:file:bg-blue-500">
-
-                            <p class="text-xs text-slate-500 mt-2">
-                                Format JPG, JPEG, PNG, atau WEBP. Maksimal 2 MB.
-                            </p>
-                        </div>
-
-                        <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                            <p class="text-blue-300 text-sm">
-                                Terima kasih sudah membantu meningkatkan kualitas layanan EVChargeHub melalui ulasan kamu!
-                            </p>
-                        </div>
-
-                        <button type="submit"
-                                class="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition shadow-lg shadow-blue-900/20">
-                            Kirim Review
+        @foreach ([['alat', 'Kondisi alat charger', 'plug', 'Kecepatan, kestabilan, dan kebersihan alat.'], ['tempat', 'Tempat & fasilitas', 'building', 'Kenyamanan, keamanan, dan fasilitas pendukung.']] as $i => [$key, $title, $ic, $hint])
+            <section class="card reveal p-6" style="--i: {{ $i + 1 }}" x-data="{ rating: {{ (int) old('rating_' . $key, 0) }}, hover: 0 }">
+                <div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300"><x-icon :name="$ic" class="h-5 w-5" /></span><div><h2 class="font-bold">{{ $title }}</h2><p class="text-xs text-slate-500">{{ $hint }}</p></div></div>
+                <input type="hidden" name="rating_{{ $key }}" :value="rating">
+                <div class="mt-5 flex items-center gap-1.5" @mouseleave="hover = 0">
+                    @foreach ([1, 2, 3, 4, 5] as $n)
+                        <button type="button" @click="rating = {{ $n }}" @mouseenter="hover = {{ $n }}" class="transition duration-150 hover:scale-125 active:scale-90" aria-label="{{ $n }} bintang">
+                            <svg class="h-9 w-9 transition-colors" :class="(hover || rating) >= {{ $n }} ? 'text-amber-400' : 'text-slate-700'" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 3z"/></svg>
                         </button>
-
-                        <a href="{{ route('spklu.show', $location->id_location) }}"
-                           class="block text-center text-slate-400 hover:text-white text-sm">
-                            Nanti saja
-                        </a>
-
-                    </form>
+                    @endforeach
+                    <span class="ml-3 text-sm font-bold text-amber-300" x-text="['', 'Buruk', 'Kurang', 'Cukup', 'Bagus', 'Luar biasa'][hover || rating]"></span>
                 </div>
-            </div>
-        </div>
-    </div>
+                <x-input-error :messages="$errors->get('rating_' . $key)" class="mt-2" />
+                <textarea name="ulasan_{{ $key }}" rows="3" maxlength="1000" class="input mt-4" placeholder="Ceritakan pengalaman Anda (opsional)">{{ old('ulasan_' . $key) }}</textarea>
+            </section>
+        @endforeach
 
-    <!-- JAVASCRIPT BINTANG -->
-    <script>
-        document.querySelectorAll('.star-rating').forEach(function (ratingGroup) {
+        <section class="card reveal p-6" style="--i:3" x-data="{ preview: null }">
+            <h2 class="font-bold">Foto lokasi <span class="text-xs font-medium text-slate-500">(opsional)</span></h2>
+            <label class="mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/10 p-8 text-center transition hover:border-emerald-400/40 hover:bg-white/[0.03]">
+                <template x-if="!preview"><span class="flex flex-col items-center gap-2 text-slate-400"><x-icon name="image" class="h-8 w-8" /><span class="text-sm font-semibold">Klik untuk unggah foto</span><span class="text-xs text-slate-600">JPG, PNG, WEBP · maks 2 MB</span></span></template>
+                <img x-show="preview" :src="preview" class="max-h-52 rounded-xl object-cover" alt="Pratinjau">
+                <input type="file" name="foto_lokasi" accept="image/*" class="sr-only" @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null">
+            </label>
+            <x-input-error :messages="$errors->get('foto_lokasi')" class="mt-2" />
+        </section>
 
-            const stars = ratingGroup.querySelectorAll('.star');
-            const radios = ratingGroup.querySelectorAll('input[type="radio"]');
-
-            function updateStars(selectedValue) {
-                stars.forEach(function (star, index) {
-                    if (index < selectedValue) {
-                        star.classList.remove('text-slate-600');
-                        star.classList.add('text-yellow-400');
-                    } else {
-                        star.classList.remove('text-yellow-400');
-                        star.classList.add('text-slate-600');
-                    }
-                });
-            }
-
-            radios.forEach(function (radio, index) {
-
-                radio.addEventListener('change', function () {
-                    updateStars(parseInt(this.value));
-                });
-
-                stars[index].addEventListener('mouseenter', function () {
-                    updateStars(index + 1);
-                });
-
-                stars[index].parentElement.addEventListener('mouseleave', function () {
-                    const selected = ratingGroup.querySelector('input:checked');
-
-                    updateStars(selected ? parseInt(selected.value) : 0);
-                });
-
-            });
-
-            // Menampilkan pilihan lama jika validasi gagal
-            const selected = ratingGroup.querySelector('input:checked');
-
-            if (selected) {
-                updateStars(parseInt(selected.value));
-            }
-        });
-    </script>
+        <div class="flex justify-end gap-3"><a href="{{ route('spklu.show', $location->id_location) }}" class="btn-secondary">Nanti saja</a><button type="submit" class="btn-primary btn-lg">Kirim ulasan</button></div>
+    </form>
 </x-app-layout>

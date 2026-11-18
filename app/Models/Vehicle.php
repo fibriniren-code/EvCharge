@@ -24,4 +24,18 @@ class Vehicle extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    // "CCS2 (Fast Charging)" menjadi "ccs2"
+    public static function connectorKey(string $connector): string
+    {
+        return strtolower(trim(preg_split('/\s*\(/', $connector)[0]));
+    }
+
+    // Cek apakah konektor kendaraan cocok dengan jenis charger
+    public function isCompatibleWith(Charger $charger): bool
+    {
+        $key = self::connectorKey((string) $this->tipe_konektor);
+
+        return $key !== '' && str_contains(strtolower((string) $charger->charger_type), $key);
+    }
 }

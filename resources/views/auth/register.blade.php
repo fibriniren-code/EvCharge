@@ -1,141 +1,53 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Daftar Akun - EVChargeHub</title>
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <style>
-        body {
-            background-color: #0d1520 !important;
-            color: #f1f5f9;
-        }
-        .ev-card {
-            background-color: #131d2e !important;
-            border: 1px solid #1e293b;
-        }
-        .ev-input {
-            background-color: #0b131f !important;
-            border: 1px solid #334155 !important;
-            color: #f8fafc !important;
-        }
-        .ev-input:focus {
-            border-color: #10b981 !important;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-        }
-        .ev-btn {
-            background-color: #10b981 !important;
-            color: #042f2e !important;
-        }
-        .ev-btn:hover {
-            background-color: #059669 !important;
-        }
-    </style>
-</head>
-<body class="font-sans antialiased min-h-screen flex items-center justify-center p-4">
+<x-guest-layout title="Daftar">
+    <p class="eyebrow">Akun pengemudi</p>
+    <h1 class="mt-2 text-3xl font-extrabold tracking-tight">Buat akun baru</h1>
+    <p class="mt-2 text-sm text-slate-400">Gratis dan hanya butuh satu menit. Setelah itu daftarkan mobil listrik Anda.</p>
 
-    <!-- Card Registrasi -->
-    <div class="w-full max-w-md ev-card rounded-3xl p-8 shadow-2xl my-8">
-        
-        <!-- Header & Logo Icon Petir Hijau -->
-        <div class="text-center mb-6">
-            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3" style="background-color: rgba(16, 185, 129, 0.15); color: #10b981;">
-                <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                </svg>
+    <form method="POST" action="{{ route('register') }}" class="mt-8 space-y-5" x-data="{ pw: '' }">
+        @csrf
+
+        <div>
+            <x-input-label for="name" value="Nama lengkap" />
+            <div class="relative">
+                <x-icon name="user" class="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
+                <x-text-input id="name" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" placeholder="Nama Anda" class="input-icon" />
             </div>
-            <h1 class="text-2xl font-bold tracking-tight text-white">EVCharge<span style="color: #10b981;">Hub</span></h1>
-            <p class="text-xs text-slate-400 mt-1">Platform Ekosistem Pengisian Daya Kendaraan Listrik</p>
+            <x-input-error :messages="$errors->get('name')" />
         </div>
 
-        <!-- Form Registrasi -->
-        <form method="POST" action="{{ route('register') }}" class="space-y-4">
-            @csrf
-
-            <!-- Nama Lengkap -->
+        <div class="grid gap-5 sm:grid-cols-2">
             <div>
-                <label for="name" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
-                <input id="name" 
-                       type="text" 
-                       name="name" 
-                       value="{{ old('name') }}" 
-                       required 
-                       autofocus 
-                       placeholder="Contoh: Budi Santoso"
-                       class="w-full px-4 py-2.5 rounded-xl ev-input text-sm">
-                <x-input-error :messages="$errors->get('name')" class="mt-1" />
+                <x-input-label for="email" value="Email" />
+                <x-text-input id="email" type="email" name="email" :value="old('email')" required autocomplete="username" placeholder="nama@email.com" />
+                <x-input-error :messages="$errors->get('email')" />
             </div>
-
-            <!-- Alamat Email -->
             <div>
-                <label for="email" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Alamat Email</label>
-                <input id="email" 
-                       type="email" 
-                       name="email" 
-                       value="{{ old('email') }}" 
-                       required 
-                       placeholder="nama@email.com"
-                       class="w-full px-4 py-2.5 rounded-xl ev-input text-sm">
-                <x-input-error :messages="$errors->get('email')" class="mt-1" />
+                <x-input-label for="phone_number" value="No. HP (opsional)" />
+                <x-text-input id="phone_number" type="tel" name="phone_number" :value="old('phone_number')" autocomplete="tel" placeholder="08xxxxxxxxxx" />
+                <x-input-error :messages="$errors->get('phone_number')" />
             </div>
-
-            <!-- Nomor Telepon -->
-            <div>
-                <label for="phone_number" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nomor Telepon</label>
-                <input id="phone_number" 
-                       type="text" 
-                       name="phone_number" 
-                       value="{{ old('phone_number') }}" 
-                       placeholder="08123456789"
-                       class="w-full px-4 py-2.5 rounded-xl ev-input text-sm">
-                <x-input-error :messages="$errors->get('phone_number')" class="mt-1" />
-            </div>
-
-            <!-- Kata Sandi -->
-            <div>
-                <label for="password" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Kata Sandi</label>
-                <input id="password" 
-                       type="password" 
-                       name="password" 
-                       required 
-                       placeholder="••••••••"
-                       class="w-full px-4 py-2.5 rounded-xl ev-input text-sm">
-                <x-input-error :messages="$errors->get('password')" class="mt-1" />
-            </div>
-
-            <!-- Konfirmasi Sandi -->
-            <div>
-                <label for="password_confirmation" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Ulangi Kata Sandi</label>
-                <input id="password_confirmation" 
-                       type="password" 
-                       name="password_confirmation" 
-                       required 
-                       placeholder="••••••••"
-                       class="w-full px-4 py-2.5 rounded-xl ev-input text-sm">
-                <x-input-error :messages="$errors->get('password_confirmation')" class="mt-1" />
-            </div>
-
-            <!-- Tombol Submit Hijau Toska -->
-            <div class="pt-2">
-                <button type="submit" 
-                        class="w-full py-3 px-4 rounded-xl text-sm font-bold ev-btn shadow-lg transition duration-150">
-                    Daftar Akun Baru
-                </button>
-            </div>
-        </form>
-
-        <!-- Footer Link ke Login -->
-        <div class="mt-6 text-center text-xs text-slate-400">
-            Sudah memiliki akun? 
-            <a href="{{ route('login') }}" style="color: #10b981;" class="hover:underline font-medium ms-1">
-                Masuk di sini
-            </a>
         </div>
-    </div>
 
-</body>
-</html>
+        <div>
+            <x-input-label for="password" value="Kata sandi" />
+            <x-text-input id="password" type="password" name="password" required autocomplete="new-password" placeholder="Minimal 8 karakter" x-model="pw" />
+            <div class="mt-2 flex gap-1.5" aria-hidden="true">
+                @foreach ([1, 2, 3, 4] as $n)
+                    <span class="h-1 flex-1 rounded-full bg-white/10 transition-colors duration-300"
+                          :class="{ 'bg-rose-400': pw.length > 0 && pw.length < 8 && {{ $n }} <= 1, 'bg-amber-400': pw.length >= 8 && pw.length < 12 && {{ $n }} <= 2, 'bg-emerald-400': pw.length >= 12 && {{ $n }} <= 4 }"></span>
+                @endforeach
+            </div>
+            <x-input-error :messages="$errors->get('password')" />
+        </div>
+
+        <div>
+            <x-input-label for="password_confirmation" value="Ulangi kata sandi" />
+            <x-text-input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password" placeholder="Ketik ulang kata sandi" />
+            <x-input-error :messages="$errors->get('password_confirmation')" />
+        </div>
+
+        <button type="submit" class="btn-primary btn-lg btn-block">Daftar &amp; mulai <x-icon name="arrow-right" class="h-4 w-4" /></button>
+    </form>
+
+    <p class="mt-8 text-center text-sm text-slate-400">Sudah punya akun? <a href="{{ route('login') }}" class="font-bold text-emerald-400 transition hover:text-emerald-300">Masuk</a></p>
+</x-guest-layout>
