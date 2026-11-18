@@ -2,84 +2,158 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'phone_number', 'role', 'status', 'balance'])]
+#[Fillable([
+    'name',
+    'email',
+    'password',
+    'phone_number',
+    'role',
+    'status',
+    'balance',
+    'no_show_count',
+    'reservation_blocked_until',
+])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'balance'           => 'decimal:2',
+            'password' => 'hashed',
+            'balance' => 'decimal:2',
+            'no_show_count' => 'integer',
+            'reservation_blocked_until' => 'datetime',
         ];
     }
 
-    /* Memeriksa apakah user memiliki salah satu peran yang diberikan. */
+    /**
+     * Memeriksa role user.
+     */
     public function hasRole(string ...$roles): bool
     {
         return in_array($this->role, $roles, true);
     }
 
-    /* Relasi: Satu user dapat memiliki banyak kendaraan EV (FR-01). */
+    /**
+     * Memeriksa apakah user sedang dibatasi untuk membuat reservasi.
+     */
+    public function isReservationBlocked(): bool
+    {
+        if (!$this->reservation_blocked_until) {
+            return false;
+        }
+
+        if ($this->reservation_blocked_until->isFuture()) {
+            return true;
+        }
+
+        // Jika masa pembatasan sudah berakhir,
+        // reset waktu blokir dan jumlah no-show.
+        $this->forceFill([
+            'reservation_blocked_until' => null,
+            'no_show_count' => 0,
+        ])->save();
+
+        return false;
+    }
+
+    /**
+     * Menambahkan jumlah no-show user.
+     * Jika mencapai 3 kali, user dibatasi selama 24 jam.
+     */
+    public function addNoShow(): void
+    {
+        $this->no_show_count = (int) $this->no_show_count + 1;
+
+        if ($this->no_show_count >= 3) {
+            $this->reservation_blocked_until = now()->addHours(24);
+        }
+
+        $this->save();
+    }
+
+    /**
+     * Relasi user dengan kendaraan.
+     */
     public function vehicles(): HasMany
     {
         return $this->hasMany(Vehicle::class, 'user_id', 'id');
     }
 
-    /* Relasi: Satu user dapat memiliki banyak reservasi (FR-02). */
+    /**
+     * Relasi user dengan reservasi.
+     */
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class, 'user_id', 'id');
     }
 
-    /* Relasi: Satu user dapat memiliki banyak riwayat sesi charging (FR-05). */
+    /**
+     * Relasi user dengan sesi charging.
+     */
     public function chargingSessions(): HasMany
     {
         return $this->hasMany(ChargingSession::class, 'user_id', 'id');
     }
 
-    /* Relasi: Satu user dapat memberikan banyak review (FR-11). */
+    /**
+     * Relasi user dengan review.
+     */
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'user_id', 'id');
     }
 
-    /* Relasi: riwayat pembayaran dan top-up milik user. */
-    public function payments(): HasMany
+    /**
+     * Relasi pembayaran user melalui charging_sessions.
+     */
+    public function payments(): HasManyThrough
     {
-        return $this->hasMany(Payment::class, 'user_id', 'id');
+        return $this->hasManyThrough(
+            Payment::class,
+            ChargingSession::class,
+            'user_id',
+            'id_session',
+            'id',
+            'id_session'
+        );
     }
 
-    /* Total tagihan yang belum lunas (kekurangan saldo saat sesi selesai). */
+    /**
+     * Menghitung total tagihan pending.
+     */
     public function outstandingAmount(): float
     {
-        return (float) $this->payments()->where('status', 'pending')->sum('jumlah');
+        return (float) $this->payments()
+            ->where('payments.status', 'pending')
+            ->sum('payments.jumlah');
     }
 
-    /* Lunasi tagihan tertunggak dari saldo, urut dari yang terlama. Mengembalikan total yang dilunasi. */
+    /**
+     * Melunasi tagihan pending menggunakan saldo user.
+     */
     public function settleOutstanding(): float
     {
         $settled = 0.0;
 
-        foreach ($this->payments()->where('status', 'pending')->orderBy('id_payment')->get() as $payment) {
+        $payments = $this->payments()
+            ->where('payments.status', 'pending')
+            ->orderBy('payments.id_payment')
+            ->get();
+
+        foreach ($payments as $payment) {
             $this->refresh();
 
             if ((float) $this->balance < (float) $payment->jumlah) {
@@ -87,7 +161,12 @@ class User extends Authenticatable
             }
 
             $this->decrement('balance', (float) $payment->jumlah);
-            $payment->update(['status' => 'success', 'waktu_pembayaran' => now()]);
+
+            $payment->update([
+                'status' => 'success',
+                'waktu_pembayaran' => now(),
+            ]);
+
             $settled += (float) $payment->jumlah;
         }
 

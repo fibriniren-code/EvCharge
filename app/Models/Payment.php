@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Payment extends Model
 {
@@ -14,7 +15,6 @@ class Payment extends Model
     protected $primaryKey = 'id_payment';
 
     protected $fillable = [
-        'user_id',
         'id_session',
         'metode',
         'jumlah',
@@ -28,13 +28,20 @@ class Payment extends Model
         'waktu_pembayaran' => 'datetime',
     ];
 
-    public function chargingSession()
+    public function chargingSession(): BelongsTo
     {
-        return $this->belongsTo(ChargingSession::class, 'id_session', 'id_session');
+        return $this->belongsTo(
+            ChargingSession::class,
+            'id_session',
+            'id_session'
+        );
     }
 
-    public function user()
+    /**
+     * Mengambil user pemilik pembayaran melalui charging session.
+     */
+    public function getUserAttribute(): ?User
     {
-        return $this->belongsTo(User::class, 'user_id', 'id');
+        return $this->chargingSession?->user;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Reservation extends Model
 {
@@ -42,7 +43,6 @@ class Reservation extends Model
         return $this->belongsTo(Vehicle::class, 'vehicle_id', 'id_vehicle');
     }
 
-    // Sesi charging terbaru milik reservasi ini
     public function chargingSession()
     {
         return $this->hasOne(ChargingSession::class, 'id_reservation', 'id_reservation')
@@ -52,20 +52,68 @@ class Reservation extends Model
     public function scopeActive($query)
     {
         return $query->whereIn('status', ['pending', 'active'])
-                     ->where('expires_at', '>', now());
+            ->where('expires_at', '>', now());
     }
 
-    // Reservasi yang sedang menahan port: pending/confirmed dan belum kedaluwarsa
     public function scopeHolding($query)
     {
         return $query->whereIn('status', ['pending', 'confirmed'])
-                     ->where('expires_at', '>', now());
+            ->where('expires_at', '>', now());
     }
 
-    // Tandai reservasi yang lewat batas waktu sebagai expired dan bebaskan port-nya.
-    // Mengembalikan jumlah reservasi yang diperbarui.
     public static function expireStale(): int
     {
+        $processed = 0;
+
+        // Proses no-show untuk reservasi yang sudah dikonfirmasi.
+        $noShows = static::where('status', 'confirmed')
+            ->where('waktu_mulai', '<=', now()->subMinutes(15))
+            ->whereDoesntHave('chargingSession')
+            ->pluck('id_reservation');
+
+        foreach ($noShows as $id) {
+            $wasProcessed = DB::transaction(function () use ($id) {
+                $reservation = static::whereKey($id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (
+                    ! $reservation ||
+                    $reservation->status !== 'confirmed' ||
+                    $reservation->waktu_mulai->gt(now()->subMinutes(15)) ||
+                    $reservation->chargingSession()->exists()
+                ) {
+                    return false;
+                }
+
+                $user = User::whereKey($reservation->user_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                $reservation->update(['status' => 'expired']);
+
+                if ($user) {
+                    $user->no_show_count = (int) $user->no_show_count + 1;
+
+                    if ($user->no_show_count >= 3) {
+                        $user->reservation_blocked_until = now()->addHours(24);
+                    }
+
+                    $user->save();
+                }
+
+                $reservation->charger?->syncReservedState();
+
+                return true;
+            });
+
+            if ($wasProcessed) {
+                $processed++;
+            }
+        }
+
+        // Pending yang melewati batas waktu konfirmasi tetap expired,
+        // tetapi tidak dihitung sebagai no-show.
         $stale = static::with('charger')
             ->whereIn('status', ['pending', 'confirmed'])
             ->where('expires_at', '<=', now())
@@ -74,8 +122,9 @@ class Reservation extends Model
         foreach ($stale as $reservation) {
             $reservation->update(['status' => 'expired']);
             $reservation->charger?->syncReservedState();
+            $processed++;
         }
 
-        return $stale->count();
+        return $processed;
     }
 }
